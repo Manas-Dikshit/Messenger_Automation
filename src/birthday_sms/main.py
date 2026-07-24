@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import logging
 import sys
+import time
 
 from birthday_sms.birthday_sender import BirthdaySender
 from birthday_sms.config import AppConfig
 from birthday_sms.csv_reader import CsvContactRepository
-from birthday_sms.date_utils import today_in_timezone
+from birthday_sms.date_utils import next_midnight_date, seconds_until_next_midnight
 from birthday_sms.exceptions import ConfigurationError, CsvError
 from birthday_sms.logger import configure_logging
 from birthday_sms.message_builder import MessageBuilder
@@ -38,12 +39,20 @@ def main() -> int:
     logger.info("Birthday SMS Automation starting. dry_run=%s", config.dry_run)
 
     try:
-        today = today_in_timezone(config.timezone)
+        # This workflow runs at 23:50 IST (see .github/workflows/daily.yml),
+        # 10 minutes before the midnight it should actually send on. So the
+        # date to check birthdays against is the day about to begin, not
+        # today's date at the moment the runner starts.
+        target_date = next_midnight_date(config.timezone)
     except ValueError as exc:
         logger.error("Timezone error: %s", exc)
         return 1
 
-    logger.info("Resolved 'today' as %s in timezone %s", today.isoformat(), config.timezone)
+    logger.info(
+        "Resolved target date as %s (next midnight in %s)",
+        target_date.isoformat(),
+        config.timezone,
+    )
 
     repository = CsvContactRepository(config.csv_path)
     gateway_client = SmsGatewayClient(config.gateway)
@@ -59,7 +68,28 @@ def main() -> int:
     )
 
     try:
-        results = sender.run(today)
+        if not config.dry_run:
+            # Skip the midnight wait entirely on nights with no birthdays,
+            # so the workflow finishes in seconds instead of ~10 minutes.
+            if not sender.has_matching_birthday(target_date):
+                logger.info(
+                    "No birthdays found for %s - nothing to do, exiting.",
+                    target_date.isoformat(),
+                )
+                return 0
+
+            wait_seconds = seconds_until_next_midnight(config.timezone)
+            if wait_seconds > 0:
+                logger.info(
+                    "Birthday(s) found for %s. Waiting %.0f second(s) until "
+                    "00:00 %s before sending.",
+                    target_date.isoformat(),
+                    wait_seconds,
+                    config.timezone,
+                )
+                time.sleep(wait_seconds)
+
+        results = sender.run(target_date)
     except CsvError as exc:
         logger.error("CSV error - aborting run: %s", exc)
         return 1
