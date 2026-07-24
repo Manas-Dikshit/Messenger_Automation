@@ -29,18 +29,23 @@ flowchart LR
     D -->|Sends via SIM| E[Recipient's phone]
 ```
 
-1. GitHub Actions wakes up on a daily cron schedule (or manual dispatch).
-2. It checks out the repo and runs `python -m birthday_sms.main`.
-3. The script reads `data/birthdays.csv`, finds contacts whose
-   birthday matches today (in the configured timezone), and renders
-   each message.
-4. For each match, it sends an HTTPS POST to the SMS Gateway Cloud API
+1. GitHub Actions wakes up at **23:50 IST** daily (or via manual
+   dispatch) and checks out the repo.
+2. It runs `python -m birthday_sms.main`, which resolves the date of
+   the *upcoming* midnight (i.e. "tomorrow" relative to 23:50) and
+   checks `data/birthdays.csv` for any enabled contact whose birthday
+   matches that date.
+3. If nobody matches, the script exits immediately - no waiting.
+4. If someone matches, the script sleeps until exactly **00:00 IST**,
+   then renders each message.
+5. For each match, it sends an HTTPS POST to the SMS Gateway Cloud API
    with HTTP Basic Auth.
-5. The cloud service relays the request to the Android app over its
+6. The cloud service relays the request to the Android app over its
    already-open connection (the app polls/holds a connection - it does
    not need to expose any port or have a static IP).
-6. The Android app sends the actual SMS using the phone's SIM.
-7. The workflow commits an updated "already sent" state file back to
+7. The Android app sends the actual SMS using the phone's SIM - right
+   at midnight.
+8. The workflow commits an updated "already sent" state file back to
    the repo so the same person isn't texted twice in one day.
 
 ## 4. Sequence Diagram
