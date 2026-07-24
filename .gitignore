@@ -1,0 +1,29 @@
+# Secrets - never commit these
+.env
+*.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Runtime state / logs (kept locally, or committed intentionally by the
+# workflow's own commit step - see docs/DEPLOYMENT.md)
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
