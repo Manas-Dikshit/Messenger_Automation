@@ -34,6 +34,16 @@ class BirthdaySender:
         self._message_builder = message_builder
         self._state_store = state_store
 
+    def has_matching_birthday(self, target_date: date) -> bool:
+        """Cheap check: does any enabled contact have a birthday on
+        `target_date`? Used to decide whether it's worth waiting until
+        midnight at all, without going through the full send pipeline.
+        """
+        contacts = self._repository.load()
+        return any(
+            contact.enabled and contact.is_birthday_today(target_date) for contact in contacts
+        )
+
     def run(self, today: date) -> list[SendResult]:
         """Execute one full run for the given date and return results."""
         logger.info("Loading contacts from %s", self._config.csv_path)
