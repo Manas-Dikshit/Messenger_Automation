@@ -1,0 +1,4 @@
+Name,PhoneNumber,Birthday,Classification,Brief,Address,Enabled,LastSent,MessageTemplate
+Rahul Sharma,+919876543210,1999-05-16,Student,Class 10 - Section B,"12 MG Road, Kolkata",TRUE,,
+Ananya Verma,+919812345678,2005-07-25,Student,Class 9 - Section A,"45 Park Street, Kolkata",TRUE,,Happy Birthday {FIRST_NAME}! Have a fantastic {AGE}th year, from your teacher.
+Suresh Iyer,+919900112233,1998-11-02,Colleague,Mathematics Department,"7 Salt Lake, Kolkata",TRUE,,
