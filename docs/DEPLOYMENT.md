@@ -106,11 +106,12 @@ is pushed to the default branch. Confirm it's active:
 
 ## Step 9 - Let It Run
 
-From here, no further action is needed. The `daily.yml` workflow will
-fire automatically every day at the scheduled time (08:00 IST /
-02:30 UTC by default), check for birthdays, send messages, and commit
-the updated sent-state file - all without the PC or the repository
-owner doing anything.
+From here, no further action is needed. The `daily.yml` workflow wakes
+up every night at 23:50 IST (18:20 UTC), checks whether anyone's
+birthday is about to begin, and - if so - waits until exactly
+00:00 IST before sending, then commits the updated sent-state file -
+all without the PC or the repository owner doing anything. On nights
+with no birthdays, the run exits within seconds instead of waiting.
 
 ## Updating Things Later
 
