@@ -1,8 +1,6 @@
 from datetime import date
 from unittest.mock import MagicMock
 
-import pytest
-
 from birthday_sms.birthday_sender import BirthdaySender
 from birthday_sms.config import AppConfig, SmsGatewayConfig
 from birthday_sms.exceptions import RetryExhaustedError
@@ -56,7 +54,11 @@ class TestBirthdaySender:
         today = date(2026, 7, 25)
         contact = make_contact(birthday=date(2000, 7, 25))
         gateway = MagicMock()
-        gateway.send_sms.return_value = SendSmsResponse(message_id="abc", state="Pending", raw={})
+        gateway.send_sms.return_value = SendSmsResponse(
+            message_id="abc",
+            state="Pending",
+            raw={},
+        )
 
         sender = BirthdaySender(
             config=make_config(tmp_path / "c.csv", tmp_path / "state.json"),
@@ -92,7 +94,10 @@ class TestBirthdaySender:
 
     def test_skips_disabled_contact(self, tmp_path):
         today = date(2026, 7, 25)
-        contact = make_contact(birthday=date(2000, 7, 25), enabled=False)
+        contact = make_contact(
+            birthday=date(2000, 7, 25),
+            enabled=False,
+        )
         gateway = MagicMock()
 
         sender = BirthdaySender(
@@ -112,12 +117,13 @@ class TestBirthdaySender:
         today = date(2026, 7, 25)
         contact = make_contact(birthday=date(2000, 7, 25))
         state_path = tmp_path / "state.json"
+
         state_store = SentStateStore(state_path)
         state_store.mark_sent(contact.phone_number, today.year)
         state_store.save()
 
         gateway = MagicMock()
-        # Reload state store fresh, as main.py would.
+
         sender = BirthdaySender(
             config=make_config(tmp_path / "c.csv", state_path),
             repository=FakeRepository([contact]),
@@ -137,7 +143,11 @@ class TestBirthdaySender:
         gateway = MagicMock()
 
         sender = BirthdaySender(
-            config=make_config(tmp_path / "c.csv", tmp_path / "state.json", dry_run=True),
+            config=make_config(
+                tmp_path / "c.csv",
+                tmp_path / "state.json",
+                dry_run=True,
+            ),
             repository=FakeRepository([contact]),
             gateway_client=gateway,
             message_builder=MessageBuilder(),
