@@ -65,7 +65,7 @@ anyone needing to remember to do it.
 
 ```bash
 # 1. Clone
-git clone https://github.com/Manas-Dikshit/Messenger_Automation.git
+git clone https://github.com/<your-username>/birthday-sms-automation.git
 cd birthday-sms-automation
 
 # 2. (Optional) local dependency install for testing

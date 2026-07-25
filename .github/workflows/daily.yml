@@ -2,17 +2,22 @@ name: Daily Birthday SMS
 
 # WHY THIS SCHEDULE:
 # GitHub Actions cron always runs in UTC. The workflow below fires at
-# 02:30 UTC, which is 08:00 IST (Asia/Kolkata, UTC+5:30) - a reasonable
-# morning send time. The Python script independently re-resolves
-# "today" in the configured BIRTHDAY_TIMEZONE (see date_utils.py), so
-# even if GitHub's scheduler jitters by a few minutes, the correct
-# calendar day is still used for birthday matching.
+# 18:20 UTC, which is 23:50 IST (Asia/Kolkata, UTC+5:30) the night
+# before. The Python script:
+#   1. Resolves the *next* midnight's date in BIRTHDAY_TIMEZONE
+#      (i.e. "tomorrow" relative to 23:50) and checks it against the CSV.
+#   2. If nobody has a birthday then, it exits immediately - no waiting.
+#   3. If someone does, it sleeps until exactly 00:00 IST, then sends.
+# This means the SMS goes out right at midnight IST, not at whatever
+# time the cron trigger itself fires - see date_utils.py
+# (next_midnight_date / seconds_until_next_midnight).
 #
 # If you serve a different timezone, change BOTH the cron expression
-# below AND the BIRTHDAY_TIMEZONE repository variable/secret.
+# below (10 minutes before midnight in your zone, in UTC) AND the
+# BIRTHDAY_TIMEZONE repository variable/secret.
 on:
   schedule:
-    - cron: "30 2 * * *" # 08:00 IST daily
+    - cron: "20 18 * * *" # 23:50 IST daily (detects "tomorrow", sends at 00:00 IST)
   workflow_dispatch: # allows manual "Run workflow" button in the Actions tab
     inputs:
       dry_run:
@@ -37,7 +42,9 @@ jobs:
   send-birthday-sms:
     name: Check birthdays and send SMS
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # The script may sleep up to ~10 minutes (from 23:50 IST until
+    # 00:00 IST) before sending, so allow enough headroom beyond that.
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
