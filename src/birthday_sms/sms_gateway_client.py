@@ -21,7 +21,10 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 from birthday_sms.config import SmsGatewayConfig
-from birthday_sms.constants import RETRYABLE_STATUS_CODES, SMS_GATEWAY_MESSAGES_ENDPOINT
+from birthday_sms.constants import (
+    RETRYABLE_STATUS_CODES,
+    SMS_GATEWAY_MESSAGES_ENDPOINT,
+)
 from birthday_sms.exceptions import (
     RetryExhaustedError,
     SmsGatewayAuthenticationError,
@@ -45,7 +48,11 @@ class SendSmsResponse:
 class SmsGatewayClient:
     """Thin, retrying wrapper around the SMS Gateway REST API."""
 
-    def __init__(self, config: SmsGatewayConfig, session: requests.Session | None = None) -> None:
+    def __init__(
+        self,
+        config: SmsGatewayConfig,
+        session: requests.Session | None = None,
+    ) -> None:
         self._config = config
         self._session = session or requests.Session()
 
@@ -60,14 +67,18 @@ class SmsGatewayClient:
             SendSmsResponse with the gateway-assigned message id.
 
         Raises:
-            SmsGatewayAuthenticationError: on HTTP 401/403 (not retried).
-            RetryExhaustedError: if all retry attempts fail.
+            SmsGatewayAuthenticationError:
+                Raised on HTTP 401/403 (not retried).
+            RetryExhaustedError:
+                Raised if all retry attempts fail.
         """
         url = f"{self._config.base_url}{SMS_GATEWAY_MESSAGES_ENDPOINT}"
+
         payload: dict = {
             "message": message,
             "phoneNumbers": [phone_number],
         }
+
         if self._config.default_sender_sim:
             payload["simNumber"] = self._config.default_sender_sim
 
@@ -78,14 +89,23 @@ class SmsGatewayClient:
                 response = self._session.post(
                     url,
                     json=payload,
-                    auth=HTTPBasicAuth(self._config.username, self._config.password),
+                    auth=HTTPBasicAuth(
+                        self._config.username,
+                        self._config.password,
+                    ),
                     timeout=self._config.timeout_seconds,
                 )
-            except requests.Timeout as exc:
+
+            except requests.Timeout:
                 last_error = SmsGatewayTimeoutError(
                     f"Request timed out after {self._config.timeout_seconds}s."
                 )
-                logger.warning("Attempt %d/%d timed out.", attempt, self._config.max_retries)
+                logger.warning(
+                    "Attempt %d/%d timed out.",
+                    attempt,
+                    self._config.max_retries,
+                )
+
             except requests.ConnectionError as exc:
                 last_error = SmsGatewayUnavailableError(
                     "Could not reach SMS Gateway. Is the phone online and "
@@ -97,6 +117,7 @@ class SmsGatewayClient:
                     self._config.max_retries,
                     exc,
                 )
+
             else:
                 if response.status_code in (401, 403):
                     raise SmsGatewayAuthenticationError(
@@ -120,10 +141,9 @@ class SmsGatewayClient:
                         response.text[:300],
                     )
                 else:
-                    # Non-retryable client error (e.g. 400 bad request).
                     raise SmsGatewayResponseError(
-                        f"Gateway rejected the request: HTTP {response.status_code} "
-                        f"- {response.text[:300]}"
+                        f"Gateway rejected the request: HTTP "
+                        f"{response.status_code} - {response.text[:300]}"
                     )
 
             if attempt < self._config.max_retries:
@@ -134,10 +154,17 @@ class SmsGatewayClient:
     def _sleep_with_backoff(self, attempt: int) -> None:
         base = self._config.retry_backoff_base_seconds
         max_delay = self._config.retry_backoff_max_seconds
+
         delay = min(base * (2 ** (attempt - 1)), max_delay)
         jitter = random.uniform(0, delay * 0.25)
         total_delay = delay + jitter
-        logger.info("Retrying in %.1fs (attempt %d)...", total_delay, attempt + 1)
+
+        logger.info(
+            "Retrying in %.1fs (attempt %d)...",
+            total_delay,
+            attempt + 1,
+        )
+
         time.sleep(total_delay)
 
     @staticmethod
@@ -146,11 +173,20 @@ class SmsGatewayClient:
             data = response.json()
         except ValueError as exc:
             raise SmsGatewayResponseError(
-                f"Gateway returned a non-JSON success response: {response.text[:300]}"
+                f"Gateway returned a non-JSON success response: "
+                f"{response.text[:300]}"
             ) from exc
 
         message_id = data.get("id")
         state = data.get("state", "Unknown")
+
         if not message_id:
-            raise SmsGatewayResponseError(f"Gateway response missing 'id' field: {data}")
-        return SendSmsResponse(message_id=message_id, state=state, raw=data)
+            raise SmsGatewayResponseError(
+                f"Gateway response missing 'id' field: {data}"
+            )
+
+        return SendSmsResponse(
+            message_id=message_id,
+            state=state,
+            raw=data,
+        )
