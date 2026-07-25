@@ -1,3 +1,4 @@
+import pytest
 import responses
 
 from birthday_sms.config import SmsGatewayConfig
@@ -7,8 +8,6 @@ from birthday_sms.exceptions import (
     SmsGatewayResponseError,
 )
 from birthday_sms.sms_gateway_client import SmsGatewayClient
-
-import pytest
 
 
 def make_config(**overrides) -> SmsGatewayConfig:
