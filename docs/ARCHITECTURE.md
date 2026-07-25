@@ -59,19 +59,24 @@ sequenceDiagram
     participant SIM as Teacher's SIM
     participant R as Recipient
 
-    GH->>PY: Scheduled trigger (cron)
-    PY->>PY: Load CSV, resolve "today" in configured timezone
-    PY->>PY: Filter contacts with birthday == today
-    loop for each birthday match
-        PY->>API: POST /3rdparty/v1/messages (Basic Auth)
-        API-->>APP: Forward send request (Cloud Mode channel)
-        APP->>SIM: Send SMS via SIM
-        SIM->>R: SMS delivered
-        API-->>PY: 200/201 + message id
-        PY->>PY: Record message id, mark contact as sent
+    GH->>PY: Scheduled trigger at 23:50 IST (cron)
+    PY->>PY: Resolve target date = next midnight's date
+    PY->>PY: Load CSV, check for any birthday == target date
+    alt no birthdays match
+        PY->>GH: Exit immediately (no wait)
+    else birthday(s) found
+        PY->>PY: Sleep until exactly 00:00 IST
+        loop for each birthday match
+            PY->>API: POST /3rdparty/v1/messages (Basic Auth)
+            API-->>APP: Forward send request (Cloud Mode channel)
+            APP->>SIM: Send SMS via SIM
+            SIM->>R: SMS delivered at 00:00 IST
+            API-->>PY: 200/201 + message id
+            PY->>PY: Record message id, mark contact as sent
+        end
+        PY->>GH: Exit code + logs
+        GH->>GH: Commit updated sent-state file
     end
-    PY->>GH: Exit code + logs
-    GH->>GH: Commit updated sent-state file
 ```
 
 ## 5. Component Diagram
@@ -273,8 +278,13 @@ this:
   be logged as a failure and can be manually re-run).
 - **GitHub Actions cron schedules are not guaranteed to the minute** -
   GitHub documents that scheduled workflows may be delayed during
-  periods of high load. For a once-a-day birthday message this is
-  rarely noticeable, but it is not a real-time system.
+  periods of high load. The 23:50 IST trigger could fire a few minutes
+  late; because `seconds_until_next_midnight()` computes the wait
+  dynamically from the runner's actual start time rather than assuming
+  exactly 10 minutes, the send still lands at 00:00 IST even if the
+  trigger itself was delayed - only extreme delays (the trigger firing
+  *after* midnight) would cause the run to fall back to sending
+  immediately rather than waiting.
 - **SMS costs are whatever the teacher's own carrier plan charges**
   for sending a text - this project does not eliminate carrier SMS
   costs, only third-party API costs.
