@@ -5,7 +5,6 @@ import pytest
 from birthday_sms.csv_reader import CsvContactRepository
 from birthday_sms.exceptions import CsvFileNotFoundError, CsvSchemaError
 
-
 VALID_CSV = """Name,PhoneNumber,Birthday,Classification,Brief,Address,Enabled,LastSent,MessageTemplate
 Rahul Sharma,+919876543210,1999-05-16,Student,Class 10,Kolkata,TRUE,,
 Ananya Verma,+919812345678,2005-07-25,Student,Class 9,Kolkata,FALSE,,

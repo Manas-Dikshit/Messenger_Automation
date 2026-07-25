@@ -108,8 +108,7 @@ class CsvContactRepository:
         if not is_valid_e164_phone_number(phone_number):
             raise InvalidPhoneNumberError(
                 row_number,
-                f"Phone number '{raw_phone}' is not valid E.164 "
-                "(expected e.g. +919876543210).",
+                f"Phone number '{raw_phone}' is not valid E.164 " "(expected e.g. +919876543210).",
             )
 
         raw_birthday = (raw_row.get(CSV_COLUMN_BIRTHDAY) or "").strip()

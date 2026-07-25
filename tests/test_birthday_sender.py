@@ -56,9 +56,7 @@ class TestBirthdaySender:
         today = date(2026, 7, 25)
         contact = make_contact(birthday=date(2000, 7, 25))
         gateway = MagicMock()
-        gateway.send_sms.return_value = SendSmsResponse(
-            message_id="abc", state="Pending", raw={}
-        )
+        gateway.send_sms.return_value = SendSmsResponse(message_id="abc", state="Pending", raw={})
 
         sender = BirthdaySender(
             config=make_config(tmp_path / "c.csv", tmp_path / "state.json"),

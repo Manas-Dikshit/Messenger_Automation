@@ -14,8 +14,7 @@ def _resolve_zoneinfo(timezone_name: str) -> ZoneInfo:
         return ZoneInfo(timezone_name)
     except ZoneInfoNotFoundError as exc:
         raise ValueError(
-            f"Unknown IANA timezone '{timezone_name}'. "
-            "Example of a valid value: 'Asia/Kolkata'."
+            f"Unknown IANA timezone '{timezone_name}'. " "Example of a valid value: 'Asia/Kolkata'."
         ) from exc
 
 
@@ -70,9 +69,7 @@ def next_midnight_date(timezone_name: str) -> date:
     """
     tz = _resolve_zoneinfo(timezone_name)
     now = datetime.now(tz)
-    next_midnight_dt = (now + timedelta(days=1)).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    next_midnight_dt = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
     return next_midnight_dt.date()
 
 
@@ -84,7 +81,5 @@ def seconds_until_next_midnight(timezone_name: str) -> float:
     """
     tz = _resolve_zoneinfo(timezone_name)
     now = datetime.now(tz)
-    next_midnight_dt = (now + timedelta(days=1)).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    next_midnight_dt = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
     return (next_midnight_dt - now).total_seconds()

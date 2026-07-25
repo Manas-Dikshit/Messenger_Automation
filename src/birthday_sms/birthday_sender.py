@@ -118,5 +118,6 @@ class BirthdaySender:
 
         logger.info(
             "Run summary: %s",
-            ", ".join(f"{status.value}={count}" for status, count in counts.items()) or "no contacts",
+            ", ".join(f"{status.value}={count}" for status, count in counts.items())
+            or "no contacts",
         )

@@ -42,10 +42,10 @@ CSV_ALL_COLUMNS: tuple[str, ...] = (
 
 # Accepted date formats for the Birthday column, tried in order.
 SUPPORTED_DATE_FORMATS: tuple[str, ...] = (
-    "%Y-%m-%d",   # 1999-05-16 (preferred, ISO 8601)
-    "%d-%m-%Y",   # 16-05-1999
-    "%d/%m/%Y",   # 16/05/1999
-    "%m/%d/%Y",   # 05/16/1999
+    "%Y-%m-%d",  # 1999-05-16 (preferred, ISO 8601)
+    "%d-%m-%Y",  # 16-05-1999
+    "%d/%m/%Y",  # 16/05/1999
+    "%m/%d/%Y",  # 05/16/1999
 )
 
 # --------------------------------------------------------------------------
@@ -60,8 +60,7 @@ PLACEHOLDER_CLASSIFICATION = "{CLASSIFICATION}"
 PLACEHOLDER_BRIEF = "{BRIEF}"
 
 DEFAULT_MESSAGE_TEMPLATE = (
-    "Happy Birthday {FIRST_NAME}! 🎉 Wishing you a wonderful year ahead. "
-    "- From your teacher"
+    "Happy Birthday {FIRST_NAME}! 🎉 Wishing you a wonderful year ahead. " "- From your teacher"
 )
 
 # --------------------------------------------------------------------------

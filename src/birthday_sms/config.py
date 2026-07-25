@@ -119,9 +119,7 @@ class AppConfig:
         return AppConfig(
             csv_path=_get_env("BIRTHDAY_CSV_PATH", DEFAULT_CSV_PATH) or DEFAULT_CSV_PATH,
             timezone=_get_env("BIRTHDAY_TIMEZONE", DEFAULT_TIMEZONE) or DEFAULT_TIMEZONE,
-            default_message_template=_get_env(
-                "DEFAULT_MESSAGE_TEMPLATE", DEFAULT_MESSAGE_TEMPLATE
-            )
+            default_message_template=_get_env("DEFAULT_MESSAGE_TEMPLATE", DEFAULT_MESSAGE_TEMPLATE)
             or DEFAULT_MESSAGE_TEMPLATE,
             log_level=_get_env("LOG_LEVEL", DEFAULT_LOG_LEVEL) or DEFAULT_LOG_LEVEL,
             dry_run=_get_env_bool("DRY_RUN", False),

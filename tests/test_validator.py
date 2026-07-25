@@ -8,9 +8,9 @@ from birthday_sms.validator import is_valid_e164_phone_number, normalize_phone_n
     [
         ("+919876543210", True),
         ("+14155552671", True),
-        ("9876543210", False),          # missing leading +
+        ("9876543210", False),  # missing leading +
         ("+91987654321012345", False),  # too long
-        ("+91", False),                 # too short
+        ("+91", False),  # too short
         ("", False),
         ("+91abcde12345", False),
     ],
