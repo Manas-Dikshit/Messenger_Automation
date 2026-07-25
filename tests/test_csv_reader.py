@@ -12,10 +12,7 @@ VALID_CSV = (
     "Ananya Verma,+919812345678,2005-07-25,Student,Class 9,Kolkata,FALSE,,\n"
 )
 
-MISSING_COLUMN_CSV = (
-    "Name,Birthday\n"
-    "Rahul Sharma,1999-05-16\n"
-)
+MISSING_COLUMN_CSV = "Name,Birthday\n" "Rahul Sharma,1999-05-16\n"
 
 BAD_ROW_CSV = (
     "Name,PhoneNumber,Birthday\n"

@@ -173,17 +173,14 @@ class SmsGatewayClient:
             data = response.json()
         except ValueError as exc:
             raise SmsGatewayResponseError(
-                f"Gateway returned a non-JSON success response: "
-                f"{response.text[:300]}"
+                f"Gateway returned a non-JSON success response: " f"{response.text[:300]}"
             ) from exc
 
         message_id = data.get("id")
         state = data.get("state", "Unknown")
 
         if not message_id:
-            raise SmsGatewayResponseError(
-                f"Gateway response missing 'id' field: {data}"
-            )
+            raise SmsGatewayResponseError(f"Gateway response missing 'id' field: {data}")
 
         return SendSmsResponse(
             message_id=message_id,
