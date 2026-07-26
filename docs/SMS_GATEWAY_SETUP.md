@@ -6,9 +6,8 @@ through setting it up on the teacher's phone from scratch.
 
 ## 1. Installation
 
-1. On the teacher's Android phone, install **SMS Gateway for Android**
-   from the Google Play Store, or sideload the APK from the project's
-   official GitHub Releases page if preferred.
+1. On the teacher's Android phone, download and install **SMS Gateway for Android**
+   from the [official website](https://sms-gate.app), [latest release](https://github.com/capcom6/android-sms-gateway/releases/latest/download/app-release.apk), or browse [all releases](https://github.com/capcom6/android-sms-gateway/releases).
 2. Open the app once installed.
 
 *(Screenshot placeholder: app icon on home screen after install.)*

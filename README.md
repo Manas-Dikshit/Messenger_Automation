@@ -58,7 +58,7 @@ anyone needing to remember to do it.
 
 - A GitHub repository (private recommended if the CSV holds real data)
 - An Android phone with a SIM plan capable of sending SMS
-- [SMS Gateway for Android](https://sms-gate.app) (capcom6, open source) installed on that phone, in **Cloud Mode**
+- [SMS Gateway for Android](https://sms-gate.app) ([GitHub](https://github.com/capcom6/android-sms-gateway), [Download APK](https://github.com/capcom6/android-sms-gateway/releases/latest/download/app-release.apk)) (capcom6, open source) installed on that phone, in **Cloud Mode**
 - Python 3.12+ (only needed for local testing — GitHub Actions installs it automatically for scheduled runs)
 
 ## Quick Start
@@ -215,5 +215,5 @@ See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md).
 ## License
 
 [MIT](LICENSE) — "SMS Gateway for Android" is a trademark/product of
-its respective author (capcom6); this project is an independent
+[capcom6](https://github.com/capcom6); this project is an independent
 integration and is not affiliated with or endorsed by it.
