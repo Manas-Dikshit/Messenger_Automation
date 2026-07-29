@@ -136,16 +136,12 @@ class TestSecondsUntilNextMidnight:
     def test_returns_ten_minutes_when_run_at_2350(self, freeze_time):
         freeze_time(datetime(2026, 7, 25, 23, 50, 0))
 
-        assert seconds_until_next_midnight("Asia/Kolkata") == pytest.approx(
-            600.0
-        )
+        assert seconds_until_next_midnight("Asia/Kolkata") == pytest.approx(600.0)
 
     def test_returns_full_day_at_exact_midnight(self, freeze_time):
         freeze_time(datetime(2026, 7, 25, 0, 0, 0))
 
-        assert seconds_until_next_midnight("Asia/Kolkata") == pytest.approx(
-            86400.0
-        )
+        assert seconds_until_next_midnight("Asia/Kolkata") == pytest.approx(86400.0)
 
     def test_raises_on_invalid_timezone(self):
         with pytest.raises(ValueError):
