@@ -114,8 +114,10 @@ class CsvContactRepository:
         raw_birthday = (raw_row.get(CSV_COLUMN_BIRTHDAY) or "").strip()
         birthday = parse_date(raw_birthday, row_number)
 
-        enabled_raw = (raw_row.get(CSV_COLUMN_ENABLED) or "TRUE").strip().upper()
-        enabled = enabled_raw in {"TRUE", "1", "YES", "Y", ""}
+        # Blank/missing Enabled means "enabled" (opt-out column, not opt-in):
+        # only an explicit falsy value (e.g. FALSE, 0, NO, N) disables a contact.
+        enabled_raw = (raw_row.get(CSV_COLUMN_ENABLED) or "").strip().upper()
+        enabled = enabled_raw not in {"FALSE", "0", "NO", "N"}
 
         return Contact(
             name=name,
