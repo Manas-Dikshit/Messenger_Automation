@@ -60,7 +60,12 @@ PLACEHOLDER_CLASSIFICATION = "{CLASSIFICATION}"
 PLACEHOLDER_BRIEF = "{BRIEF}"
 
 DEFAULT_MESSAGE_TEMPLATE = (
-    "Happy Birthday {FIRST_NAME}! 🎉 Wishing you a wonderful year ahead. " "- From your teacher"
+    "Dear {FIRST_NAME}, wishing you a very Happy Birthday! May the year ahead bring you "
+    "good health, happiness and success.\n\n"
+    "With regards,\n"
+    "Dr. Rasmikanta Pati, Asst. Professor, Mathematics\n"
+    "SUIIT, Sambalpur University\n"
+    "Sambalpur, Odisha-768019"
 )
 
 # --------------------------------------------------------------------------
