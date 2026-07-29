@@ -14,8 +14,7 @@ def _resolve_zoneinfo(timezone_name: str) -> ZoneInfo:
         return ZoneInfo(timezone_name)
     except ZoneInfoNotFoundError as exc:
         raise ValueError(
-            f"Unknown IANA timezone '{timezone_name}'. "
-            "Example of a valid value: 'Asia/Kolkata'."
+            f"Unknown IANA timezone '{timezone_name}'. " "Example of a valid value: 'Asia/Kolkata'."
         ) from exc
 
 
