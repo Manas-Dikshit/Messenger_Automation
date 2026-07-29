@@ -190,6 +190,75 @@ Tests cover CSV parsing/validation, date parsing, message rendering,
 retry/backoff behavior against a mocked HTTP layer (no real network
 calls), and the full send orchestration logic.
 
+### Manual Instant Test (real SMS, right now)
+
+`python -m birthday_sms.main` always waits until the *next* midnight
+before sending — not useful for an instant manual check. To trigger a
+real send immediately, bypass the wait and call `BirthdaySender.run()`
+directly with today's date:
+
+```bash
+export SMS_GATEWAY_USERNAME=your_real_username
+export SMS_GATEWAY_PASSWORD=your_real_password
+export DRY_RUN=false
+
+python -c "
+from datetime import date
+from birthday_sms.config import AppConfig
+from birthday_sms.csv_reader import CsvContactRepository
+from birthday_sms.sms_gateway_client import SmsGatewayClient
+from birthday_sms.message_builder import MessageBuilder
+from birthday_sms.state_store import SentStateStore
+from birthday_sms.birthday_sender import BirthdaySender
+from birthday_sms.logger import configure_logging
+
+config = AppConfig.from_env()
+configure_logging(level=config.log_level)
+repo = CsvContactRepository(config.csv_path)
+gw = SmsGatewayClient(config.gateway)
+mb = MessageBuilder()
+state = SentStateStore(config.state_file_path)
+sender = BirthdaySender(config=config, repository=repo, gateway_client=gw, message_builder=mb, state_store=state)
+results = sender.run(date.today())
+for r in results:
+    print(r.status, r.contact.phone_number, getattr(r, 'error', None))
+"
+```
+
+Steps:
+1. Temporarily set a contact's `Birthday` in `data/birthdays.csv` to
+   today's date (use your own number, not a real student's).
+2. If that number is already marked sent this year in
+   `data/.sent_state.json`, remove its entry (or reset the file to
+   `{}`) so the dedupe check doesn't skip it.
+3. Run the snippet above. Check `SendStatus.SENT` in the output and
+   your phone for the SMS.
+4. Revert `data/birthdays.csv` (and `.sent_state.json` if you cleared
+   it) back to their original contents afterward.
+
+For a dry-run instead of a real send, set `DRY_RUN=true` and skip step
+2 — the message is only rendered and logged, nothing is sent.
+
+### Even Quicker: Raw curl Test
+
+Bypasses the whole script — hits the SMS Gateway Cloud API directly.
+Good for confirming your gateway credentials/app setup work at all,
+independent of this project's code:
+
+```bash
+curl -u "your_real_username:your_real_password" \
+  -X POST "https://api.sms-gate.app/3rdparty/v1/messages" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "message": "Test message from curl",
+        "phoneNumbers": ["+91XXXXXXXXXX"]
+      }'
+```
+
+Replace username, password, and phone number. A successful response
+returns JSON with an `id` and `state` (e.g. `"Pending"`) — check your
+phone for the SMS.
+
 ## Troubleshooting & FAQ
 
 - Common errors and fixes: [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)
