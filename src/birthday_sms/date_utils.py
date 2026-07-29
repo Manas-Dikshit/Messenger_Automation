@@ -1,8 +1,8 @@
-"""Date parsing and timezone-aware "today" resolution."""
+"""Date parsing and timezone-aware date resolution."""
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from birthday_sms.constants import SUPPORTED_DATE_FORMATS
@@ -10,6 +10,7 @@ from birthday_sms.exceptions import InvalidDateError
 
 
 def _resolve_zoneinfo(timezone_name: str) -> ZoneInfo:
+    """Resolve an IANA timezone name into a ZoneInfo instance."""
     try:
         return ZoneInfo(timezone_name)
     except ZoneInfoNotFoundError as exc:
@@ -29,7 +30,7 @@ def parse_date(raw_value: str, row_number: int = 0) -> date:
         A datetime.date.
 
     Raises:
-        InvalidDateError: if no supported format matches.
+        InvalidDateError: If no supported format matches.
     """
     value = raw_value.strip()
 
@@ -53,13 +54,51 @@ def parse_date(raw_value: str, row_number: int = 0) -> date:
 
 
 def today_in_timezone(timezone_name: str) -> date:
-    """Return today's calendar date in the configured timezone.
+    """Return today's calendar date in the given IANA timezone.
 
-    GitHub Actions runners use UTC internally, so date.today() cannot
-    reliably be used for timezone-specific birthday processing.
-
-    For example, when the workflow runs at 00:05 IST, this returns
-    the current IST date even though the UTC date may be different.
+    GitHub Actions runners use UTC, so the application must resolve
+    the current date using the configured local timezone.
     """
     tz = _resolve_zoneinfo(timezone_name)
     return datetime.now(tz).date()
+
+
+def next_midnight_date(timezone_name: str) -> date:
+    """Return the calendar date of the next local midnight.
+
+    This function is retained for compatibility with the previous
+    pre-midnight workflow and its tests.
+
+    The current production workflow should use today_in_timezone()
+    instead and run shortly after midnight.
+    """
+    tz = _resolve_zoneinfo(timezone_name)
+    now = datetime.now(tz)
+
+    next_midnight_dt = (now + timedelta(days=1)).replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+
+    return next_midnight_dt.date()
+
+
+def seconds_until_next_midnight(timezone_name: str) -> float:
+    """Return the number of seconds until the next local midnight.
+
+    This function is retained for compatibility with the previous
+    pre-midnight workflow and its tests.
+    """
+    tz = _resolve_zoneinfo(timezone_name)
+    now = datetime.now(tz)
+
+    next_midnight_dt = (now + timedelta(days=1)).replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+
+    return (next_midnight_dt - now).total_seconds()
