@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 import birthday_sms.main as main_module
 
 
@@ -30,9 +28,7 @@ class TestMainNoBirthdaysToday:
         monkeypatch.setenv("DRY_RUN", "false")
 
         called = {"slept": False}
-        monkeypatch.setattr(
-            main_module.time, "sleep", lambda *_: called.__setitem__("slept", True)
-        )
+        monkeypatch.setattr(main_module.time, "sleep", lambda *_: called.__setitem__("slept", True))
 
         exit_code = main_module.main()
 
