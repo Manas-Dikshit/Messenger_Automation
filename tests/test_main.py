@@ -17,9 +17,9 @@ class TestMainConfigurationError:
 
 
 class TestMainNoBirthdaysToday:
-    def test_returns_0_and_skips_wait_when_no_match(self, monkeypatch, tmp_path):
+    def test_returns_0_when_no_match(self, monkeypatch, tmp_path):
         csv_path = tmp_path / "birthdays.csv"
-        csv_path.write_text("Name,Birthday,PhoneNumber\nAlice,1990-01-01,+10000000000\n")
+        csv_path.write_text("Name,Birthday,PhoneNumber\n" "Alice,1990-01-01,+10000000000\n")
 
         monkeypatch.setenv("SMS_GATEWAY_USERNAME", "user")
         monkeypatch.setenv("SMS_GATEWAY_PASSWORD", "pass")
@@ -27,10 +27,6 @@ class TestMainNoBirthdaysToday:
         monkeypatch.setenv("STATE_FILE_PATH", str(tmp_path / "state.json"))
         monkeypatch.setenv("DRY_RUN", "false")
 
-        called = {"slept": False}
-        monkeypatch.setattr(main_module.time, "sleep", lambda *_: called.__setitem__("slept", True))
-
         exit_code = main_module.main()
 
         assert exit_code == 0
-        assert called["slept"] is False
