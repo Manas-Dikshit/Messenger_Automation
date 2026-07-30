@@ -128,13 +128,14 @@ Default template (overridable via `DEFAULT_MESSAGE_TEMPLATE` env var
 or the `daily.yml` workflow env block):
 
 ```
-Dear {FIRST_NAME}, wishing you a very Happy Birthday! May the year ahead bring you
-good health, happiness and success.
-
-With regards,
-Dr. Rasmikanta Pati, Asst. Professor, Mathematics
-SUIIT, Sambalpur University
-Sambalpur, Odisha-768019
+    "Happy Birthday to Rtn. {NAME}! 🎉🎂\n\n"
+    "The members of Rotary Club, Burla extend our heartfelt wishes to you on your special day.\n\n"
+    "Wishing you many, many happy returns of the day! May you be blessed with good health, happiness, success, "
+    "and many more years of dedicated service to humanity through Rotary.\n\n"
+    "With regards,\n"
+    "Dr. Rasmikanta Pati, Asst. Professor, Mathematics\n"
+    "SUIIT, Sambalpur University\n"
+    "Sambalpur, Odisha-768019"
 ```
 
 ## Configuration Reference
