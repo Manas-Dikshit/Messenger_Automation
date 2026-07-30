@@ -50,7 +50,11 @@ jobs:
     name: Check birthdays and send SMS
     runs-on: ubuntu-latest
 
-    timeout-minutes: 10
+    # The script may sleep up to ~10 minutes (from 23:50 IST until
+    # 00:00 IST) before sending, then send to every matching contact
+    # with retry/backoff on transient gateway errors - allow headroom
+    # for a worst case of many same-day birthdays all needing retries.
+    timeout-minutes: 25
 
     steps:
       # ------------------------------------------------------------

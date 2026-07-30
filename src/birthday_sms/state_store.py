@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import tempfile
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -41,8 +43,24 @@ class SentStateStore:
         self._data[self._key(phone_number, year)] = True
 
     def save(self) -> None:
+        """Write the state file atomically (temp file + rename) so a crash
+        mid-write can never leave a truncated/corrupt file behind - that
+        would otherwise be silently treated as "empty" on the next run
+        (see `_load`), risking a duplicate SMS to everyone.
+        """
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(json.dumps(self._data, indent=2, sort_keys=True), encoding="utf-8")
+        payload = json.dumps(self._data, indent=2, sort_keys=True)
+
+        fd, tmp_name = tempfile.mkstemp(
+            dir=self._path.parent, prefix=f".{self._path.name}.", suffix=".tmp"
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as tmp_file:
+                tmp_file.write(payload)
+            os.replace(tmp_name, self._path)
+        except BaseException:
+            Path(tmp_name).unlink(missing_ok=True)
+            raise
 
     @staticmethod
     def _key(phone_number: str, year: int) -> str:

@@ -1,8 +1,8 @@
 # Birthday SMS Automation
 
 Automatically sends a Birthday SMS to people on a contact list — from
-a teacher's **own Android phone and SIM card** — every year, with no
-PC left running, no cloud SMS provider, and no business API.
+**your own Android phone and SIM card** — every year, with no PC left
+running, no cloud SMS provider, and no business API.
 
 ```
 GitHub Actions  --daily cron-->  Python script  --HTTPS-->  SMS Gateway Cloud API
@@ -14,6 +14,11 @@ GitHub Actions  --daily cron-->  Python script  --HTTPS-->  SMS Gateway Cloud AP
                                                         Teacher's SIM --> Recipient
 ```
 
+New here? Start with [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md)
+for a plain-English explanation of what this is and why, or jump
+straight to [`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md) for a
+step-by-step walkthrough from zero to a fully running system.
+
 Full architecture, diagrams, and design rationale: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Table of Contents
@@ -22,6 +27,7 @@ Full architecture, diagrams, and design rationale: [`docs/ARCHITECTURE.md`](docs
 - [Features](#features)
 - [Requirements](#requirements)
 - [Quick Start](#quick-start)
+- [How a Daily Run Works](#how-a-daily-run-works)
 - [CSV Format](#csv-format)
 - [Message Templates](#message-templates)
 - [Configuration Reference](#configuration-reference)
@@ -84,6 +90,31 @@ Then:
 4. Push to GitHub — the `daily.yml` workflow takes it from there
 
 Full walkthrough: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
+## How a Daily Run Works
+
+1. **GitHub Actions triggers** `.github/workflows/daily.yml` on a
+   cron schedule, timed to fire shortly after midnight in
+   `BIRTHDAY_TIMEZONE` (default `Asia/Kolkata`).
+2. The Python script resolves **today's date** in that timezone and
+   loads every contact from `data/birthdays.csv`.
+3. For each contact: skipped if disabled (`Enabled=FALSE`), skipped
+   if their birthday (month + day only — year is irrelevant) isn't
+   today, skipped if they were already sent a message this year
+   (tracked in `data/.sent_state.json`).
+4. Anyone left gets their message rendered from a template (their
+   own `MessageTemplate` override, or the shared default) and sent
+   through the SMS Gateway Cloud API, with automatic retry/backoff on
+   transient network errors.
+5. The updated "already sent" state is written back **atomically**
+   (temp file + rename, so a crash mid-write can never corrupt it)
+   and committed back to the repository by the workflow.
+6. Individual send failures are logged but don't fail the whole run
+   — one bad contact never blocks everyone else's birthday message.
+
+You can also trigger a run manually anytime via the **Actions** tab
+→ **Daily Birthday SMS** → **Run workflow**, with an option to
+`dry_run` (render and log messages without sending anything real).
 
 ## CSV Format
 
@@ -180,7 +211,7 @@ curl -u "$SMS_GATEWAY_USERNAME:$SMS_GATEWAY_PASSWORD" \
   -X POST "https://api.sms-gate.app/3rdparty/v1/messages" \
   -H "Content-Type: application/json" \
   -d '{
-        "message": "Happy Birthday Rahul! Wishing you a wonderful year ahead. - From your teacher",
+        "message": "Dear Rahul, wishing you a very Happy Birthday! ...",
         "phoneNumbers": ["+919876543210"]
       }'
 ```
@@ -199,10 +230,11 @@ calls), and the full send orchestration logic.
 
 ### Manual Instant Test (real SMS, right now)
 
-`python -m birthday_sms.main` always waits until the *next* midnight
-before sending — not useful for an instant manual check. To trigger a
-real send immediately, bypass the wait and call `BirthdaySender.run()`
-directly with today's date:
+`python -m birthday_sms.main` checks *today's* date, so a normal run
+already sends immediately if a matching birthday exists — but it
+requires an actual matching row in `data/birthdays.csv`. To test
+against your own number without waiting for your workflow's schedule,
+call `BirthdaySender.run()` directly with today's date:
 
 ```bash
 export SMS_GATEWAY_USERNAME=your_real_username
@@ -276,6 +308,8 @@ phone for the SMS.
 
 | Document | Contents |
 |---|---|
+| [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) | Plain-English what/why/how for anyone new to the project |
+| [`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md) | Step-by-step, zero-to-running setup for a first-time user |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System design, diagrams, tech stack, failure scenarios, versioning |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | Threat model, secrets handling, credential rotation/revocation |
 | [`docs/SMS_GATEWAY_SETUP.md`](docs/SMS_GATEWAY_SETUP.md) | Android app installation, permissions, Cloud Mode setup |
