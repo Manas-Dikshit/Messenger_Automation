@@ -4,14 +4,12 @@ Automatically sends a Birthday SMS to people on a contact list — from
 **your own Android phone and SIM card** — every year, with no PC left
 running, no cloud SMS provider, and no business API.
 
-```
-GitHub Actions  --daily cron-->  Python script  --HTTPS-->  SMS Gateway Cloud API
-                                                                  |
-                                                                  v
-                                                   SMS Gateway for Android app
-                                                                  |
-                                                                  v
-                                                        Teacher's SIM --> Recipient
+```mermaid
+flowchart LR
+    A[GitHub Actions<br/>scheduled cron] --> B[Python birthday_sms<br/>package]
+    B -->|HTTPS + Basic Auth| C[SMS Gateway Cloud API<br/>api.sms-gate.app]
+    C -->|FCM Push Notification| D[SMS Gateway for Android<br/>app on phone]
+    D -->|Sends via SIM| E[Recipient's phone]
 ```
 
 New here? Start with [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md)
