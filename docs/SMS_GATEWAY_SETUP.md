@@ -48,7 +48,7 @@ The app supports two modes:
 | Mode | How it works | Suitable here? |
 |---|---|---|
 | **Local Mode** | App exposes a local HTTP server on the phone's own IP; caller must be on the same network | No - GitHub Actions runners are not on the same network as the phone |
-| **Cloud Mode** | App maintains an outbound connection to a cloud relay (`api.sms-gate.app`); caller sends requests to the cloud API, which forwards to the phone | **Yes - this is what this project uses** |
+| **Cloud Mode** | App registers with the cloud relay (`api.sms-gate.app`); cloud server forwards send commands to the phone via FCM push notifications | **Yes - this is what this project uses** |
 
 ## 5. Enabling Cloud Mode
 

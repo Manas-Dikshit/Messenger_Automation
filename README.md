@@ -4,14 +4,12 @@ Automatically sends a Birthday SMS to people on a contact list — from
 **your own Android phone and SIM card** — every year, with no PC left
 running, no cloud SMS provider, and no business API.
 
-```
-GitHub Actions  --daily cron-->  Python script  --HTTPS-->  SMS Gateway Cloud API
-                                                                  |
-                                                                  v
-                                                   SMS Gateway for Android app
-                                                                  |
-                                                                  v
-                                                        Teacher's SIM --> Recipient
+```mermaid
+flowchart LR
+    A[GitHub Actions<br/>scheduled cron] --> B[Python birthday_sms<br/>package]
+    B -->|HTTPS + Basic Auth| C[SMS Gateway Cloud API<br/>api.sms-gate.app]
+    C -->|FCM Push Notification| D[SMS Gateway for Android<br/>app on phone]
+    D -->|Sends via SIM| E[Recipient's phone]
 ```
 
 New here? Start with [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md)
@@ -56,6 +54,10 @@ anyone needing to remember to do it.
 - ✅ Per-contact custom message override
 - ✅ Duplicate-send protection (won't text the same person twice in a day)
 - ✅ Automatic retry with exponential backoff for transient network errors
+- ✅ Delivery confirmation — polls the gateway after sending and re-checks
+  unconfirmed messages (e.g. recipient's phone was off) on the next run
+- ✅ Run report on the GitHub Actions **Summary** page (status counts,
+  per-contact delivery outcome, unconfirmed backlog)
 - ✅ Structured logging visible directly in the GitHub Actions log viewer
 - ✅ `dry_run` mode to test message rendering without sending real SMS
 - ✅ Type-hinted, tested, linted Python 3.12+ codebase
@@ -106,10 +108,19 @@ Full walkthrough: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
    own `MessageTemplate` override, or the shared default) and sent
    through the SMS Gateway Cloud API, with automatic retry/backoff on
    transient network errors.
-5. The updated "already sent" state is written back **atomically**
+5. After sending, the script **polls the gateway for delivery states**
+   (`GET /messages/{id}`) for up to `DELIVERY_POLL_WINDOW_SECONDS`
+   (default 10 minutes). Messages confirmed `Delivered` or `Failed`
+   are reported; anything still pending (typically a switched-off
+   phone) is recorded as *unconfirmed* and automatically re-checked
+   at the start of the next run.
+6. A Markdown **run summary** (status counts, per-contact delivery
+   outcome, unconfirmed backlog) is written to the workflow run's
+   Summary page.
+7. The updated "already sent" state is written back **atomically**
    (temp file + rename, so a crash mid-write can never corrupt it)
    and committed back to the repository by the workflow.
-6. Individual send failures are logged but don't fail the whole run
+8. Individual send failures are logged but don't fail the whole run
    — one bad contact never blocks everyone else's birthday message.
 
 You can also trigger a run manually anytime via the **Actions** tab
@@ -185,6 +196,9 @@ ones:
 | `SMS_GATEWAY_MAX_RETRIES` | – | `4` | Exponential backoff |
 | `SMS_GATEWAY_TIMEOUT_SECONDS` | – | `15` | Per-request timeout |
 | `DRY_RUN` | – | `false` | Render but don't send |
+| `DELIVERY_POLL_ENABLED` | – | `true` | Poll delivery states after sending |
+| `DELIVERY_POLL_INTERVAL_SECONDS` | – | `30` | Seconds between state polls |
+| `DELIVERY_POLL_WINDOW_SECONDS` | – | `600` | Max polling time per run |
 | `LOG_LEVEL` | – | `INFO` | `DEBUG`/`INFO`/`WARNING`/`ERROR` |
 
 ## Folder Structure

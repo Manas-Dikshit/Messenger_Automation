@@ -54,6 +54,28 @@ Check, in order:
    "tomorrow" or "yesterday" if the timezone doesn't match the
    contacts' actual local dates.
 
+## Run summary says a delivery is "unconfirmed"
+
+The message was accepted by the cloud gateway but hadn't reached
+`Delivered` state before the polling window closed (default 10
+minutes, `DELIVERY_POLL_WINDOW_SECONDS`). The most common cause is
+the recipient's phone being switched off — the SMS is delivered
+automatically once it comes back online. The script re-checks
+unconfirmed messages at the start of the next run and logs the final
+outcome; nothing is re-sent, so there is no duplicate risk. If a
+message stays unconfirmed for several days, check the number and the
+SMS Gateway app's own log on the phone.
+
+## Run summary says a delivery "Failed"
+
+The gateway (or carrier) reported the SMS as undeliverable. Verify
+the phone number in `data/birthdays.csv`, and check the SMS Gateway
+app's log on the sending phone for carrier errors. Note the dedupe
+state was already marked, so fixing the number and re-running the
+workflow the same day will skip that contact — remove their
+`<phone>:<year>` entry from `data/.sent_state.json` first if you want
+an immediate resend.
+
 ## Workflow didn't run at the scheduled time at all
 
 GitHub Actions documents that scheduled workflows can be delayed
