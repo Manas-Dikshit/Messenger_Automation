@@ -28,7 +28,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Render messages and log them WITHOUT sending real SMS"
+        description: "Test mode - true means NO real SMS is sent, it only shows what would be sent"
         required: false
         default: "false"
         type: choice
@@ -36,7 +36,7 @@ on:
           - "false"
           - "true"
       test_phone_number:
-        description: "Optional: send a one-off test message to this number instead of using data/birthdays.csv (E.164 format, e.g. +919876543210). Leave blank for a normal run."
+        description: "To test on YOUR phone only: type your number here (e.g. +919876543210). Leave empty to run normally for everyone in the CSV."
         required: false
         default: ""
 
