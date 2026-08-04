@@ -37,6 +37,8 @@ class BirthdaySender:
         self._message_builder = message_builder
         self._state_store = state_store
         self._delivery_tracker = delivery_tracker
+        #: message id -> last known gateway state from this run's polling.
+        self.delivery_states: dict[str, str] = {}
 
     def run(self, today: date) -> list[SendResult]:
         """Execute one full run for the given date and return results."""
@@ -146,6 +148,7 @@ class BirthdaySender:
 
         by_id = {r.message_id: r for r in sent}
         states = self._delivery_tracker.track(list(by_id))
+        self.delivery_states = states
 
         for message_id, state in states.items():
             result = by_id[message_id]

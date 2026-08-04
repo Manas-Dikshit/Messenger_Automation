@@ -103,6 +103,14 @@ jobs:
           # Logging
           LOG_LEVEL: INFO
 
+          # Delivery confirmation polling (optional overrides).
+          # The script polls GET /messages/{id} after sending and
+          # writes a Markdown report to the run's Summary page via
+          # GITHUB_STEP_SUMMARY (set automatically by Actions).
+          DELIVERY_POLL_ENABLED: ${{ vars.DELIVERY_POLL_ENABLED }}
+          DELIVERY_POLL_INTERVAL_SECONDS: ${{ vars.DELIVERY_POLL_INTERVAL_SECONDS }}
+          DELIVERY_POLL_WINDOW_SECONDS: ${{ vars.DELIVERY_POLL_WINDOW_SECONDS }}
+
           # Manual dry-run option
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
 

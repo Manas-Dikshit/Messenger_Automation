@@ -25,7 +25,7 @@ internet.
 flowchart LR
     A[GitHub Actions\nscheduled cron] --> B[Python birthday_sms\npackage]
     B -->|HTTPS + Basic Auth| C[SMS Gateway Cloud API\napi.sms-gate.app]
-    C -->|Push notification /\npersistent connection| D[SMS Gateway for Android\napp on teacher's phone]
+    C -->|FCM Push Notification| D[SMS Gateway for Android\napp on teacher's phone]
     D -->|Sends via SIM| E[Recipient's phone]
 ```
 
@@ -40,13 +40,19 @@ flowchart LR
    then renders each message.
 5. For each match, it sends an HTTPS POST to the SMS Gateway Cloud API
    with HTTP Basic Auth.
-6. The cloud service relays the request to the Android app over its
-   already-open connection (the app polls/holds a connection - it does
-   not need to expose any port or have a static IP).
+6. The cloud service relays the request to the Android app via an **FCM (Firebase Cloud Messaging) Push Notification**, waking up the app on demand without requiring an active WebSocket or static IP.
 7. The Android app sends the actual SMS using the phone's SIM - right
    at midnight.
-8. The workflow commits an updated "already sent" state file back to
-   the repo so the same person isn't texted twice in one day.
+8. The script then polls the cloud API (`GET /messages/{id}`) for up
+   to `DELIVERY_POLL_WINDOW_SECONDS` (default 10 min) to confirm
+   delivery. Messages still pending when the window closes — usually a
+   switched-off phone — are stored as *unconfirmed* in the state file
+   and re-checked once at the start of the next run.
+9. A Markdown run report (status counts, per-contact delivery outcome,
+   unconfirmed backlog) is appended to the workflow's Summary page via
+   `GITHUB_STEP_SUMMARY`.
+10. The workflow commits an updated "already sent" state file back to
+    the repo so the same person isn't texted twice in one day.
 
 ## 4. Sequence Diagram
 
@@ -92,6 +98,8 @@ flowchart TB
         msg[message_builder.py<br/>MessageBuilder]
         sender[birthday_sender.py<br/>BirthdaySender orchestrator]
         client[sms_gateway_client.py<br/>SmsGatewayClient]
+        tracker[delivery_tracker.py<br/>DeliveryTracker]
+        summary[run_summary.py<br/>Step-summary writer]
         state[state_store.py<br/>SentStateStore]
         logger[logger.py]
         models[models.py<br/>Contact, SendResult]
@@ -198,8 +206,10 @@ birthday-sms-automation/
 │       ├── date_utils.py
 │       ├── validator.py
 │       ├── message_builder.py # Template rendering engine
-│       ├── sms_gateway_client.py  # HTTP client w/ retry+backoff
-│       ├── state_store.py     # Duplicate-send prevention
+│       ├── sms_gateway_client.py  # HTTP client w/ retry+backoff + state polling
+│       ├── delivery_tracker.py    # Post-send delivery-state polling loop
+│       ├── run_summary.py     # GitHub Actions step-summary report
+│       ├── state_store.py     # Duplicate-send prevention + unconfirmed backlog
 │       ├── birthday_sender.py # Orchestrator
 │       └── logger.py
 ├── tests/
@@ -240,9 +250,10 @@ SMS Gateway for Android (capcom6, open source) is built exactly for
 this:
 
 - It's an app installed once on the teacher's phone.
-- **Cloud Mode** means the app maintains its own outbound connection
-  to a cloud relay - the automation script never needs the phone's IP
-  address, and the phone can be on any network (Wi-Fi or mobile data).
+- **Cloud Mode** means the app maintains its registration with a cloud relay (`api.sms-gate.app`) - the automation script never needs the phone's IP address, and the phone can be on any network (Wi-Fi or mobile data).
+- **Communication Architecture (FCM Push vs. WebSockets & Webhooks):**
+  - **Phone ↔ Cloud (FCM Push):** The cloud API uses **Firebase Cloud Messaging (FCM)** push notifications to trigger the Android app when a message needs to be sent. Unlike persistent WebSockets (which drain phone battery and are killed by Android OS Doze mode), FCM push allows the app to be woken up on demand by Google Play Services.
+  - **Cloud → Your Backend (Webhooks):** Message status events (`sms:sent`, `sms:delivered` carrier confirmation, `sms:failed`, `sms:cancelled`, and inbound SMS) are reported asynchronously to registered HTTPS webhook endpoints via JSON payloads.
 - It exposes a simple REST API (username/password) that any HTTP
   client - including a GitHub Actions runner - can call.
 - It is not a marketing/OTP bulk-SMS business API, so there's no
@@ -310,6 +321,8 @@ only over HTTPS, and scoped to nothing beyond message sending.
 | Entire CSV missing/renamed | `CsvFileNotFoundError`, run aborts | Restore file or fix `BIRTHDAY_CSV_PATH` |
 | Gateway returns unexpected schema | `SmsGatewayResponseError` | Check for a capcom6 API version change; see `TROUBLESHOOTING.md` |
 | Duplicate workflow trigger same day | State store already marked | Second attempt logged as `SKIPPED_ALREADY_SENT`, no duplicate SMS sent |
+| Recipient's phone off overnight | Delivery poll window expires with state still `Pending` | Message recorded as *unconfirmed* in the state file; next run re-checks it once and logs the final outcome |
+| Gateway reports `Failed` delivery | Delivery poll (or next-run re-check) returns `Failed` | Logged as an error in the run log and Summary page; investigate the number / gateway app |
 
 ## 16. Logging & Monitoring
 
@@ -319,6 +332,9 @@ only over HTTPS, and scoped to nothing beyond message sending.
   `SKIPPED_NOT_TODAY`, `SKIPPED_DISABLED`, `SKIPPED_ALREADY_SENT`, or
   `DRY_RUN`.
 - A per-run summary line aggregates counts by outcome.
+- Delivery confirmation results (`Delivered` / `Failed` / unconfirmed)
+  are logged per message and shown on the run's **Summary** page as a
+  Markdown report (written via `GITHUB_STEP_SUMMARY`).
 - Optional JSON-lines file logging is available via
   `configure_logging(log_file=...)` for teams that want to ship logs
   elsewhere.
