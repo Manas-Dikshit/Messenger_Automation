@@ -27,7 +27,7 @@ Otherwise:
 1. Go to the repository's page on GitHub.
 2. Click the **Fork** button (top right) — this makes your own copy
    under your account.
-3. Note your fork's URL, e.g. `https://github.com/<your-username>/Messenger_Automation`.
+3. Note your fork's URL, e.g. `https://github.com/<Manas-Dikshit>/Messenger_Automation`.
 
 ---
 
