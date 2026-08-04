@@ -19,28 +19,58 @@ logger = logging.getLogger(__name__)
 
 
 class SentStateStore:
-    """Reads/writes a small JSON file of `"<phone>:<year>": true` entries."""
+    """Reads/writes a small JSON state file.
+
+    File layout (current):
+
+        {
+          "sent": {"<phone>:<year>": true, ...},
+          "unconfirmed": {"<message_id>": {"phone": "...", "year": 2026}, ...}
+        }
+
+    Legacy files were a flat `{"<phone>:<year>": true}` mapping; those
+    are migrated transparently on load.
+    """
 
     def __init__(self, path: str | Path) -> None:
         self._path = Path(path)
-        self._data: dict[str, bool] = {}
+        self._sent: dict[str, bool] = {}
+        self._unconfirmed: dict[str, dict] = {}
         self._load()
 
     def _load(self) -> None:
         if not self._path.exists():
-            self._data = {}
             return
         try:
-            self._data = json.loads(self._path.read_text(encoding="utf-8"))
+            raw = json.loads(self._path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError) as exc:
             logger.warning("Could not read state file (%s); starting fresh.", exc)
-            self._data = {}
+            return
+
+        if isinstance(raw, dict) and "sent" in raw:
+            self._sent = dict(raw.get("sent") or {})
+            self._unconfirmed = dict(raw.get("unconfirmed") or {})
+        elif isinstance(raw, dict):
+            # Legacy flat format: every key is "<phone>:<year>" -> bool.
+            self._sent = raw
 
     def already_sent(self, phone_number: str, year: int) -> bool:
-        return self._data.get(self._key(phone_number, year), False)
+        return self._sent.get(self._key(phone_number, year), False)
 
     def mark_sent(self, phone_number: str, year: int) -> None:
-        self._data[self._key(phone_number, year)] = True
+        self._sent[self._key(phone_number, year)] = True
+
+    def mark_unconfirmed(self, message_id: str, phone_number: str, year: int) -> None:
+        """Record a sent message whose delivery was not confirmed this run."""
+        self._unconfirmed[message_id] = {"phone": phone_number, "year": year}
+
+    def resolve_unconfirmed(self, message_id: str) -> None:
+        """Remove a message from the unconfirmed list (reached terminal state)."""
+        self._unconfirmed.pop(message_id, None)
+
+    def unconfirmed(self) -> dict[str, dict]:
+        """Return a copy of the unconfirmed message map."""
+        return dict(self._unconfirmed)
 
     def save(self) -> None:
         """Write the state file atomically (temp file + rename) so a crash
@@ -49,7 +79,11 @@ class SentStateStore:
         (see `_load`), risking a duplicate SMS to everyone.
         """
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps(self._data, indent=2, sort_keys=True)
+        payload = json.dumps(
+            {"sent": self._sent, "unconfirmed": self._unconfirmed},
+            indent=2,
+            sort_keys=True,
+        )
 
         fd, tmp_name = tempfile.mkstemp(
             dir=self._path.parent, prefix=f".{self._path.name}.", suffix=".tmp"

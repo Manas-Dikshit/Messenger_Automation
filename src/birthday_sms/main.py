@@ -16,6 +16,7 @@ from birthday_sms.birthday_sender import BirthdaySender
 from birthday_sms.config import AppConfig
 from birthday_sms.csv_reader import CsvContactRepository
 from birthday_sms.date_utils import today_in_timezone
+from birthday_sms.delivery_tracker import DeliveryTracker
 from birthday_sms.exceptions import ConfigurationError, CsvError
 from birthday_sms.logger import configure_logging
 from birthday_sms.message_builder import MessageBuilder
@@ -61,12 +62,21 @@ def main() -> int:
     message_builder = MessageBuilder()
     state_store = SentStateStore(config.state_file_path)
 
+    delivery_tracker = None
+    if config.delivery_poll_enabled and not config.dry_run:
+        delivery_tracker = DeliveryTracker(
+            gateway_client,
+            poll_interval_seconds=config.delivery_poll_interval_seconds,
+            poll_window_seconds=config.delivery_poll_window_seconds,
+        )
+
     sender = BirthdaySender(
         config=config,
         repository=repository,
         gateway_client=gateway_client,
         message_builder=message_builder,
         state_store=state_store,
+        delivery_tracker=delivery_tracker,
     )
 
     try:

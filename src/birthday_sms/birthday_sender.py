@@ -7,7 +7,9 @@ import logging
 from datetime import date
 
 from birthday_sms.config import AppConfig
+from birthday_sms.constants import DELIVERY_TERMINAL_STATES
 from birthday_sms.csv_reader import CsvContactRepository
+from birthday_sms.delivery_tracker import DeliveryTracker
 from birthday_sms.exceptions import RetryExhaustedError, SmsGatewayError
 from birthday_sms.message_builder import MessageBuilder
 from birthday_sms.models import Contact, SendResult, SendStatus
@@ -27,15 +29,19 @@ class BirthdaySender:
         gateway_client: SmsGatewayClient,
         message_builder: MessageBuilder,
         state_store: SentStateStore,
+        delivery_tracker: DeliveryTracker | None = None,
     ) -> None:
         self._config = config
         self._repository = repository
         self._gateway_client = gateway_client
         self._message_builder = message_builder
         self._state_store = state_store
+        self._delivery_tracker = delivery_tracker
 
     def run(self, today: date) -> list[SendResult]:
         """Execute one full run for the given date and return results."""
+        self._recheck_previous_unconfirmed()
+
         logger.info("Loading contacts from %s", self._config.csv_path)
         contacts = self._repository.load()
         logger.info("Loaded %d contact(s).", len(contacts))
@@ -45,6 +51,7 @@ class BirthdaySender:
             result = self._process_contact(contact, today)
             results.append(result)
 
+        self._confirm_deliveries(results, today)
         self._state_store.save()
         self._log_summary(results)
         return results
@@ -99,6 +106,68 @@ class BirthdaySender:
             message_id=response.message_id,
             rendered_message=rendered_message,
         )
+
+    def _recheck_previous_unconfirmed(self) -> None:
+        """One-shot state check for messages left unconfirmed by earlier runs
+        (e.g. the recipient's phone was off overnight)."""
+        for message_id, info in self._state_store.unconfirmed().items():
+            try:
+                response = self._gateway_client.get_message_state(message_id)
+            except SmsGatewayError as exc:
+                logger.warning("Recheck of %s failed: %s", message_id, exc)
+                continue
+
+            if response.state in DELIVERY_TERMINAL_STATES:
+                log = logger.info if response.state == "Delivered" else logger.error
+                log(
+                    "Previously unconfirmed message %s (to %s) is now %s.",
+                    message_id,
+                    info.get("phone"),
+                    response.state,
+                )
+                self._state_store.resolve_unconfirmed(message_id)
+            else:
+                logger.info(
+                    "Message %s (to %s) still unconfirmed (state=%s).",
+                    message_id,
+                    info.get("phone"),
+                    response.state,
+                )
+
+    def _confirm_deliveries(self, results: list[SendResult], today: date) -> None:
+        """Poll delivery states for this run's sent messages and record any
+        that did not reach a terminal state as unconfirmed."""
+        if self._delivery_tracker is None:
+            return
+
+        sent = [r for r in results if r.status == SendStatus.SENT and r.message_id]
+        if not sent:
+            return
+
+        by_id = {r.message_id: r for r in sent}
+        states = self._delivery_tracker.track(list(by_id))
+
+        for message_id, state in states.items():
+            result = by_id[message_id]
+            if state == "Delivered":
+                logger.info("Delivery confirmed for %s (%s).", result.contact.name, message_id)
+            elif state == "Failed":
+                logger.error(
+                    "Gateway reports delivery FAILED for %s (%s).",
+                    result.contact.name,
+                    message_id,
+                )
+            else:
+                logger.warning(
+                    "Delivery unconfirmed for %s (%s, state=%s) - phone may be "
+                    "off; will re-check next run.",
+                    result.contact.name,
+                    message_id,
+                    state,
+                )
+                self._state_store.mark_unconfirmed(
+                    message_id, result.contact.phone_number, today.year
+                )
 
     @staticmethod
     def _log_summary(results: list[SendResult]) -> None:

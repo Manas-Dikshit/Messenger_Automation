@@ -15,6 +15,8 @@ from dataclasses import dataclass, field
 from birthday_sms.constants import (
     DEFAULT_API_TIMEOUT_SECONDS,
     DEFAULT_CSV_PATH,
+    DEFAULT_DELIVERY_POLL_INTERVAL_SECONDS,
+    DEFAULT_DELIVERY_POLL_WINDOW_SECONDS,
     DEFAULT_LOG_LEVEL,
     DEFAULT_MAX_RETRIES,
     DEFAULT_MESSAGE_TEMPLATE,
@@ -87,6 +89,9 @@ class AppConfig:
     dry_run: bool
     state_file_path: str
     gateway: SmsGatewayConfig = field(repr=False)
+    delivery_poll_enabled: bool = True
+    delivery_poll_interval_seconds: float = DEFAULT_DELIVERY_POLL_INTERVAL_SECONDS
+    delivery_poll_window_seconds: float = DEFAULT_DELIVERY_POLL_WINDOW_SECONDS
 
     @staticmethod
     def from_env() -> "AppConfig":
@@ -125,4 +130,11 @@ class AppConfig:
             dry_run=_get_env_bool("DRY_RUN", False),
             state_file_path=_get_env("STATE_FILE_PATH", STATE_FILE_PATH) or STATE_FILE_PATH,
             gateway=gateway,
+            delivery_poll_enabled=_get_env_bool("DELIVERY_POLL_ENABLED", True),
+            delivery_poll_interval_seconds=_get_env_float(
+                "DELIVERY_POLL_INTERVAL_SECONDS", DEFAULT_DELIVERY_POLL_INTERVAL_SECONDS
+            ),
+            delivery_poll_window_seconds=_get_env_float(
+                "DELIVERY_POLL_WINDOW_SECONDS", DEFAULT_DELIVERY_POLL_WINDOW_SECONDS
+            ),
         )
