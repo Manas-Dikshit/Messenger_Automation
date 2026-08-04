@@ -113,6 +113,13 @@ birthday is about to begin, and - if so - waits until exactly
 all without the PC or the repository owner doing anything. On nights
 with no birthdays, the run exits within seconds instead of waiting.
 
+After sending, the run polls the gateway for delivery confirmation
+(up to 10 minutes) and writes a Markdown report — status counts,
+per-contact delivery outcome, and any unconfirmed messages — to the
+workflow run's **Summary** page (Actions → the run → Summary).
+Messages that stay unconfirmed (recipient's phone off) are re-checked
+automatically at the start of the next run.
+
 ## Updating Things Later
 
 - **Add/remove a contact:** edit `data/birthdays.csv`, commit, push.

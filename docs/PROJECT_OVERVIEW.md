@@ -97,6 +97,11 @@ Sender's own SIM card → Recipient's phone
   skill required for day-to-day use.
 - **Dedupe protection.** The app keeps a small state file so nobody
   gets double-texted if the workflow happens to run twice in a day.
+- **Delivery confirmation.** After sending, the app polls the gateway
+  until each message is confirmed `Delivered` (or `Failed`). If the
+  recipient's phone is off, the message is remembered as *unconfirmed*
+  and checked again automatically on the next night's run. Each run's
+  outcome appears as a report on the GitHub Actions Summary page.
 - **Dry-run mode.** Every part of the system can be tested without
   sending a single real SMS (`DRY_RUN=true`), so changes can be
   verified safely before going live.

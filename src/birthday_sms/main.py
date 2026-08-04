@@ -21,6 +21,7 @@ from birthday_sms.exceptions import ConfigurationError, CsvError
 from birthday_sms.logger import configure_logging
 from birthday_sms.message_builder import MessageBuilder
 from birthday_sms.models import SendStatus
+from birthday_sms.run_summary import build_summary_markdown, write_github_step_summary
 from birthday_sms.sms_gateway_client import SmsGatewayClient
 from birthday_sms.state_store import SentStateStore
 
@@ -84,6 +85,15 @@ def main() -> int:
     except CsvError as exc:
         logger.error("CSV error - aborting run: %s", exc)
         return 1
+
+    # Visible report on the GitHub Actions run page (no-op locally).
+    write_github_step_summary(
+        build_summary_markdown(
+            results,
+            delivery_states=sender.delivery_states,
+            unconfirmed=state_store.unconfirmed(),
+        )
+    )
 
     failures = [r for r in results if r.status == SendStatus.FAILED]
 

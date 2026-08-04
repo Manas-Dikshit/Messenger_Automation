@@ -60,9 +60,23 @@ default template, or fill it in per-row with any combination of
 Whatever `BIRTHDAY_TIMEZONE` is set to (default `Asia/Kolkata`), not
 the GitHub Actions runner's UTC clock. See `date_utils.py`.
 
-**Q: Is my contact data private?**
-The CSV lives in your Git repository. Make the repository **Private**
-if it contains real personal data - see `SECURITY.md`.
+**Q: Does SMS Gateway use WebSockets or FCM to communicate with the phone?**
+It uses **Firebase Cloud Messaging (FCM)** push notifications. FCM allows the Cloud API to wake up the app on demand via Google Play Services without keeping a battery-heavy WebSocket connection open 24/7.
+
+**Q: What is the difference between FCM and Webhooks in this setup?**
+FCM handles the **Cloud → Phone** leg (triggering the Android app to send an SMS), whereas Webhooks (HTTPS POST requests) handle the **Cloud → Your Backend** leg (notifying your custom server of status events like `sms:sent`, `sms:delivered`, or `sms:failed`).
+
+**Q: How do I know a message was actually delivered?**
+After sending, the script polls the Cloud API (`GET /messages/{id}`)
+for up to 10 minutes (configurable via `DELIVERY_POLL_WINDOW_SECONDS`).
+The result — `Delivered`, `Failed`, or still unconfirmed — is shown in
+the run logs and on the workflow run's **Summary** page.
+
+**Q: What happens if the recipient's phone is switched off overnight?**
+The SMS is queued on the cloud side and delivered when the phone comes
+back online. The script records the message as *unconfirmed* in
+`data/.sent_state.json` and re-checks it once at the start of the next
+run, logging the final outcome then. Nobody is double-texted.
 
 **Q: What license is this project under?**
 MIT - see `LICENSE`.

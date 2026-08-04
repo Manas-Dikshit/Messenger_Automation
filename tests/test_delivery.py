@@ -304,3 +304,14 @@ class TestDeliveryConfig:
         assert config.delivery_poll_enabled is False
         assert config.delivery_poll_interval_seconds == 5.0
         assert config.delivery_poll_window_seconds == 60.0
+
+    def test_delivery_states_exposed_after_run(self, tmp_path):
+        gateway = MagicMock()
+        gateway.send_sms.return_value = SendSmsResponse("msg-1", "Pending", {})
+        tracker = MagicMock()
+        tracker.track.return_value = {"msg-1": "Delivered"}
+        sender, _ = make_sender(tmp_path, gateway, tracker, [make_contact()])
+
+        sender.run(date(2026, 7, 25))
+
+        assert sender.delivery_states == {"msg-1": "Delivered"}
