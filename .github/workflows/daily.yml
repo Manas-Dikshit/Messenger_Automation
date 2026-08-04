@@ -35,6 +35,10 @@ on:
         options:
           - "false"
           - "true"
+      test_phone_number:
+        description: "Optional: send a one-off test message to this number instead of using data/birthdays.csv (E.164 format, e.g. +919876543210). Leave blank for a normal run."
+        required: false
+        default: ""
 
 # The workflow needs to read the repository and update the sent-state file.
 permissions:
@@ -84,6 +88,28 @@ jobs:
           pip install -e .
 
       # ------------------------------------------------------------
+      # Optional: build a throwaway CSV for a one-off test send.
+      # Only runs when test_phone_number is filled in on manual
+      # dispatch. Writes outside the repo (runner temp dir) so
+      # data/birthdays.csv and data/.sent_state.json are never
+      # touched - nothing to commit, nothing to revert.
+      # ------------------------------------------------------------
+      - name: Build test CSV (manual test only)
+        if: ${{ inputs.test_phone_number != '' }}
+        env:
+          TEST_PHONE: ${{ inputs.test_phone_number }}
+          TZ: ${{ vars.BIRTHDAY_TIMEZONE || 'Asia/Kolkata' }}
+        run: |
+          today=$(date +%Y-%m-%d)
+          mkdir -p "$RUNNER_TEMP/birthday_test"
+          {
+            echo "Name,PhoneNumber,Birthday,Classification,Brief,Address,Enabled,LastSent,MessageTemplate"
+            echo "Test Contact,${TEST_PHONE},${today},Test,,,TRUE,,"
+          } > "$RUNNER_TEMP/birthday_test/birthdays.csv"
+          echo "Wrote test CSV with birthday=${today} for ${TEST_PHONE}"
+          cat "$RUNNER_TEMP/birthday_test/birthdays.csv"
+
+      # ------------------------------------------------------------
       # Birthday SMS
       # ------------------------------------------------------------
       - name: Run birthday SMS script
@@ -96,9 +122,10 @@ jobs:
           SMS_GATEWAY_BASE_URL: ${{ vars.SMS_GATEWAY_BASE_URL }}
           BIRTHDAY_TIMEZONE: ${{ vars.BIRTHDAY_TIMEZONE }}
 
-          # Application paths
-          BIRTHDAY_CSV_PATH: data/birthdays.csv
-          STATE_FILE_PATH: data/.sent_state.json
+          # Application paths - swapped to the throwaway test CSV/state
+          # when test_phone_number was provided, otherwise the real ones.
+          BIRTHDAY_CSV_PATH: ${{ inputs.test_phone_number != '' && format('{0}/birthday_test/birthdays.csv', runner.temp) || 'data/birthdays.csv' }}
+          STATE_FILE_PATH: ${{ inputs.test_phone_number != '' && format('{0}/birthday_test/state.json', runner.temp) || 'data/.sent_state.json' }}
 
           # Logging
           LOG_LEVEL: INFO
