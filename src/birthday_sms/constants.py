@@ -86,6 +86,15 @@ DEFAULT_SMS_GATEWAY_BASE_URL = "https://api.sms-gate.app/3rdparty/v1"
 SMS_GATEWAY_MESSAGES_ENDPOINT = "/messages"
 
 # --------------------------------------------------------------------------
+# Delivery confirmation polling
+# --------------------------------------------------------------------------
+# Gateway message states that will never change again.
+DELIVERY_TERMINAL_STATES: frozenset[str] = frozenset({"Delivered", "Failed"})
+
+DEFAULT_DELIVERY_POLL_INTERVAL_SECONDS = 30.0
+DEFAULT_DELIVERY_POLL_WINDOW_SECONDS = 600.0
+
+# --------------------------------------------------------------------------
 # Misc
 # --------------------------------------------------------------------------
 DEFAULT_TIMEZONE = "Asia/Kolkata"

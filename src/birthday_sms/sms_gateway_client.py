@@ -151,6 +151,48 @@ class SmsGatewayClient:
 
         raise RetryExhaustedError(self._config.max_retries, last_error)
 
+    def get_message_state(self, message_id: str) -> SendSmsResponse:
+        """Fetch the current state of a previously sent message.
+
+        Single attempt, no retry loop - callers poll, so polling is the
+        retry mechanism.
+
+        Raises:
+            SmsGatewayAuthenticationError: on HTTP 401/403.
+            SmsGatewayResponseError: on any other non-2xx response.
+            SmsGatewayTimeoutError / SmsGatewayUnavailableError:
+                on network-level failures.
+        """
+        url = f"{self._config.base_url}{SMS_GATEWAY_MESSAGES_ENDPOINT}/{message_id}"
+
+        try:
+            response = self._session.get(
+                url,
+                auth=HTTPBasicAuth(self._config.username, self._config.password),
+                timeout=self._config.timeout_seconds,
+            )
+        except requests.Timeout as exc:
+            raise SmsGatewayTimeoutError(
+                f"State request timed out after {self._config.timeout_seconds}s."
+            ) from exc
+        except requests.ConnectionError as exc:
+            raise SmsGatewayUnavailableError(
+                "Could not reach SMS Gateway for state check."
+            ) from exc
+
+        if response.status_code in (401, 403):
+            raise SmsGatewayAuthenticationError(
+                f"Authentication failed (HTTP {response.status_code}) fetching message state."
+            )
+
+        if response.status_code // 100 != 2:
+            raise SmsGatewayResponseError(
+                f"Gateway state request failed: HTTP "
+                f"{response.status_code} - {response.text[:300]}"
+            )
+
+        return self._parse_success(response)
+
     def _sleep_with_backoff(self, attempt: int) -> None:
         base = self._config.retry_backoff_base_seconds
         max_delay = self._config.retry_backoff_max_seconds
