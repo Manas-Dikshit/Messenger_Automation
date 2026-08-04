@@ -67,9 +67,7 @@ DEFAULT_MESSAGE_TEMPLATE = (
     "May you be blessed with good health, happiness, success, "
     "and many more years of dedicated service to humanity through Rotary.\n\n"
     "With regards,\n"
-    "Dr. Rasmikanta Pati, Asst. Professor, Mathematics\n"
-    "SUIIT, Sambalpur University\n"
-    "Sambalpur, Odisha-768019"
+    "Dr. Rasmikanta Pati, Secretary, RCB\n"
 )
 
 # --------------------------------------------------------------------------
