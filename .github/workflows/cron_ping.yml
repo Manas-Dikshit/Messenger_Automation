@@ -30,6 +30,23 @@ jobs:
         with:
           fetch-depth: 1
 
+      # ------------------------------------------------------------
+      # Dead-man's-switch: "start" ping - see daily.yml for why this
+      # exists (duration tracking + hung-job detection). Only on the
+      # permanent slot / manual runs, not the TEMP test slots.
+      # ------------------------------------------------------------
+      - name: Ping healthcheck - start
+        if: >-
+          ${{ secrets.HEALTHCHECK_URL_CRONPING != '' &&
+          github.event.schedule != '17 6 * * *' &&
+          github.event.schedule != '3 7 * * *' &&
+          github.event.schedule != '8 9 * * *' &&
+          github.event.schedule != '12 12 * * *' &&
+          github.event.schedule != '17 15 * * *' }}
+        run: |
+          curl -fsS -m 10 --retry 3 "${{ secrets.HEALTHCHECK_URL_CRONPING }}/start" \
+            || echo "Healthcheck start ping failed (non-fatal)."
+
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
@@ -39,15 +56,17 @@ jobs:
         run: pip install requests
 
       - name: Call API
-        run: python cron_ping/main.py
+        run: python cron_ping/main.py | tee "$RUNNER_TEMP/cron_ping_output.txt"
 
       # ------------------------------------------------------------
-      # Dead-man's-switch monitoring (healthchecks.io). See the
-      # matching step in daily.yml for why this exists. Only pings
-      # on the permanent slot / manual runs, not the TEMP test slots.
+      # Dead-man's-switch monitoring (healthchecks.io) - end ping.
+      # See the matching step in daily.yml for why this exists. Only
+      # pings on the permanent slot / manual runs, not the TEMP test
+      # slots. The API's response (captured above) is attached as the
+      # ping body so it's visible in healthchecks.io's ping log too.
       # No-op if HEALTHCHECK_URL_CRONPING secret isn't set.
       # ------------------------------------------------------------
-      - name: Ping healthcheck (real runs only)
+      - name: Ping healthcheck - end (real runs only)
         if: >-
           ${{ always() && secrets.HEALTHCHECK_URL_CRONPING != '' &&
           github.event.schedule != '17 6 * * *' &&
@@ -60,4 +79,9 @@ jobs:
           if [ "${{ job.status }}" != "success" ]; then
             url="${url}/fail"
           fi
-          curl -fsS -m 10 --retry 3 "$url" || echo "Healthcheck ping failed (non-fatal)."
+          if [ -f "$RUNNER_TEMP/cron_ping_output.txt" ]; then
+            curl -fsS -m 10 --retry 3 --data-binary "@$RUNNER_TEMP/cron_ping_output.txt" "$url" \
+              || echo "Healthcheck ping failed (non-fatal)."
+          else
+            curl -fsS -m 10 --retry 3 "$url" || echo "Healthcheck ping failed (non-fatal)."
+          fi

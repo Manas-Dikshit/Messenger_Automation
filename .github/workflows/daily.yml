@@ -82,28 +82,11 @@ jobs:
           fetch-depth: 1
 
       # ------------------------------------------------------------
-      # Python
-      # ------------------------------------------------------------
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: "pip"
-
-      # ------------------------------------------------------------
-      # Dependencies
-      # ------------------------------------------------------------
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e .
-
-      # ------------------------------------------------------------
       # Decide whether this run is a test (manual, with a phone
       # number filled in) or one of the TEMP scheduled full-flow
       # tests above. Real cron/dispatch-with-no-number runs are
-      # untouched by any of this.
+      # untouched by any of this. Runs early so both healthcheck
+      # pings (start and end) can be gated on it consistently.
       # ------------------------------------------------------------
       - name: Determine test mode
         id: testmode
@@ -122,6 +105,38 @@ jobs:
             echo "is_test=false" >> "$GITHUB_OUTPUT"
             echo "numbers=" >> "$GITHUB_OUTPUT"
           fi
+
+      # ------------------------------------------------------------
+      # Dead-man's-switch: "start" ping. healthchecks.io uses this to
+      # measure run duration and detect a hung job that starts but
+      # never finishes (a plain end-of-run ping can't catch that - a
+      # hung job never reaches the end). Gated the same way as the
+      # end ping (real runs only) so test slots never leave a
+      # dangling "started but never finished" state on the monitor.
+      # ------------------------------------------------------------
+      - name: Ping healthcheck - start
+        if: ${{ steps.testmode.outputs.is_test == 'false' && secrets.HEALTHCHECK_URL_DAILY != '' }}
+        run: |
+          curl -fsS -m 10 --retry 3 "${{ secrets.HEALTHCHECK_URL_DAILY }}/start" \
+            || echo "Healthcheck start ping failed (non-fatal)."
+
+      # ------------------------------------------------------------
+      # Python
+      # ------------------------------------------------------------
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      # ------------------------------------------------------------
+      # Dependencies
+      # ------------------------------------------------------------
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
 
       # ------------------------------------------------------------
       # Build a throwaway CSV for a test send (manual, one number,
@@ -211,7 +226,7 @@ jobs:
           fi
 
       # ------------------------------------------------------------
-      # Dead-man's-switch monitoring (healthchecks.io).
+      # Dead-man's-switch monitoring (healthchecks.io) - end ping.
       #
       # GitHub gives no visibility into whether a `schedule` trigger
       # actually fired, or was delayed/dropped (see docs linked at
@@ -219,14 +234,27 @@ jobs:
       # REAL run (not test slots) lets it alert us by email if a
       # ping doesn't arrive within the configured schedule + grace
       # period - the only way to catch a silently dropped trigger.
+      # Paired with the "start" ping above, healthchecks.io also
+      # measures run duration and flags a hung job that starts but
+      # never reaches this step.
+      #
+      # The run summary body is attached to the ping (healthchecks.io
+      # stores the last ~10KB of a ping's body and shows it in the
+      # ping log), so the same status/timestamp/error detail visible
+      # on the GitHub Summary page is also visible there.
       #
       # No-op if HEALTHCHECK_URL_DAILY secret isn't set.
       # ------------------------------------------------------------
-      - name: Ping healthcheck (real runs only)
+      - name: Ping healthcheck - end (real runs only)
         if: ${{ always() && steps.testmode.outputs.is_test == 'false' && secrets.HEALTHCHECK_URL_DAILY != '' }}
         run: |
           url="${{ secrets.HEALTHCHECK_URL_DAILY }}"
           if [ "${{ job.status }}" != "success" ]; then
             url="${url}/fail"
           fi
-          curl -fsS -m 10 --retry 3 "$url" || echo "Healthcheck ping failed (non-fatal)."
+          if [ -f "$GITHUB_STEP_SUMMARY" ]; then
+            curl -fsS -m 10 --retry 3 --data-binary "@$GITHUB_STEP_SUMMARY" "$url" \
+              || echo "Healthcheck ping failed (non-fatal)."
+          else
+            curl -fsS -m 10 --retry 3 "$url" || echo "Healthcheck ping failed (non-fatal)."
+          fi
