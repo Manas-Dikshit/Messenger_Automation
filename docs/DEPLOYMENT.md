@@ -107,11 +107,14 @@ is pushed to the default branch. Confirm it's active:
 ## Step 9 - Let It Run
 
 From here, no further action is needed. The `daily.yml` workflow wakes
-up every night at 23:50 IST (18:20 UTC), checks whether anyone's
-birthday is about to begin, and - if so - waits until exactly
-00:00 IST before sending, then commits the updated sent-state file -
-all without the PC or the repository owner doing anything. On nights
-with no birthdays, the run exits within seconds instead of waiting.
+up shortly after midnight, at 00:17 IST (18:47 UTC), checks whether
+anyone's birthday is today, and sends immediately if so, then commits
+the updated sent-state file - all without the PC or the repository
+owner doing anything. On nights with no birthdays, the run exits
+within seconds. Note GitHub does not guarantee this trigger fires
+exactly on time - see the Limitations section in
+[`ARCHITECTURE.md`](ARCHITECTURE.md#13-limitations) for how much it
+can actually drift.
 
 A separate `.github/workflows/keepalive.yml` runs twice a month and
 commits a small heartbeat file for one reason only: GitHub disables

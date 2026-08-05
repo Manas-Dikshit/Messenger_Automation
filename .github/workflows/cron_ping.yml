@@ -1,10 +1,16 @@
 name: Daily Cron Ping
 
 # GitHub Actions cron uses UTC.
-# 10:00 IST = 04:30 UTC. Adjust if a different timezone is intended.
+# 10:17 IST = 04:47 UTC. Adjust if a different timezone is intended.
+#
+# The minute is deliberately NOT a round number (:00/:15/:30/:45).
+# GitHub's docs warn scheduled workflows can be delayed or dropped
+# during high-load periods, and "the start of every hour" is called
+# out as high-load - an odd offset avoids that pile-up.
+# https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
 on:
   schedule:
-    - cron: "30 4 * * *" # 10:00 IST daily
+    - cron: "47 4 * * *" # 10:17 IST daily
     - cron: "15 6 * * *" # TEMP test slot - 11:45 IST - remove after today
     - cron: "0 7 * * *"  # TEMP test slot - 12:30 IST - remove after today
     - cron: "0 9 * * *"  # TEMP test slot - 14:30 IST - remove after today

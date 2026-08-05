@@ -29,15 +29,16 @@ flowchart LR
     D -->|Sends via SIM| E[Recipient's phone]
 ```
 
-1. GitHub Actions wakes up at **23:50 IST** daily (or via manual
-   dispatch) and checks out the repo.
-2. It runs `python -m birthday_sms.main`, which resolves the date of
-   the *upcoming* midnight (i.e. "tomorrow" relative to 23:50) and
-   checks `data/birthdays.csv` for any enabled contact whose birthday
+1. GitHub Actions wakes up shortly after midnight, **00:17 IST**
+   daily (or via manual dispatch), and checks out the repo.
+2. It runs `python -m birthday_sms.main`, which resolves **today's
+   date** directly in `BIRTHDAY_TIMEZONE` and checks
+   `data/birthdays.csv` for any enabled contact whose birthday
    matches that date.
 3. If nobody matches, the script exits immediately - no waiting.
-4. If someone matches, the script sleeps until exactly **00:00 IST**,
-   then renders each message.
+4. If someone matches, the script renders each message right away -
+   there's no sleep-until-midnight step; the trigger itself running
+   after midnight is what makes "today" already correct.
 5. For each match, it sends an HTTPS POST to the SMS Gateway Cloud API
    with HTTP Basic Auth.
 6. The cloud service relays the request to the Android app via an **FCM (Firebase Cloud Messaging) Push Notification**, waking up the app on demand without requiring an active WebSocket or static IP.
@@ -65,18 +66,17 @@ sequenceDiagram
     participant SIM as Teacher's SIM
     participant R as Recipient
 
-    GH->>PY: Scheduled trigger at 23:50 IST (cron)
-    PY->>PY: Resolve target date = next midnight's date
-    PY->>PY: Load CSV, check for any birthday == target date
+    GH->>PY: Scheduled trigger at 00:17 IST (cron)
+    PY->>PY: Resolve today's date directly (already past midnight)
+    PY->>PY: Load CSV, check for any birthday == today
     alt no birthdays match
         PY->>GH: Exit immediately (no wait)
     else birthday(s) found
-        PY->>PY: Sleep until exactly 00:00 IST
         loop for each birthday match
             PY->>API: POST /3rdparty/v1/messages (Basic Auth)
             API-->>APP: Forward send request (Cloud Mode channel)
             APP->>SIM: Send SMS via SIM
-            SIM->>R: SMS delivered at 00:00 IST
+            SIM->>R: SMS delivered
             API-->>PY: 200/201 + message id
             PY->>PY: Record message id, mark contact as sent
         end
@@ -289,15 +289,23 @@ this:
   the time the workflow runs. If it's off, the SMS Gateway Cloud
   relay cannot forward the request, and the send will fail (it will
   be logged as a failure and can be manually re-run).
-- **GitHub Actions cron schedules are not guaranteed to the minute** -
-  GitHub documents that scheduled workflows may be delayed during
-  periods of high load. The 23:50 IST trigger could fire a few minutes
-  late; because `seconds_until_next_midnight()` computes the wait
-  dynamically from the runner's actual start time rather than assuming
-  exactly 10 minutes, the send still lands at 00:00 IST even if the
-  trigger itself was delayed - only extreme delays (the trigger firing
-  *after* midnight) would cause the run to fall back to sending
-  immediately rather than waiting.
+- **GitHub Actions cron schedules are not guaranteed at all** - per
+  [GitHub's docs](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule),
+  the `schedule` event "can be delayed during periods of high loads,"
+  explicitly including "the start of every hour," and under heavy
+  load "some queued jobs may be dropped" entirely rather than just
+  delayed. No maximum delay is published - in practice this project
+  has observed anywhere from instant to 1.5+ hours late, and
+  occasionally a slot simply never fires. Both `daily.yml` and
+  `cron_ping.yml` deliberately use non-round trigger minutes (`:47`,
+  `:17`) to avoid the top-of-the-hour pile-up, but this reduces risk,
+  it does not eliminate it. Because the script resolves *today's*
+  date directly rather than sleeping until midnight, a late trigger
+  on the *same calendar day* still sends correctly - it just arrives
+  later than intended. A trigger dropped entirely, or delayed past
+  midnight into the next day, means that birthday is simply missed
+  for the day (no automatic catch-up; would need a manual dispatch
+  to send it late).
 - **GitHub disables scheduled workflows after 60 days with no commits
   to the repository.** Mitigated by `.github/workflows/keepalive.yml`,
   which commits a heartbeat file twice a month purely to keep the

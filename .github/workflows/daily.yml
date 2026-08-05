@@ -2,13 +2,20 @@ name: Daily Birthday SMS
 
 # GitHub Actions cron uses UTC.
 #
-# 18:35 UTC = 00:05 IST (next day).
+# 18:47 UTC = 00:17 IST (next day).
 #
 # The workflow intentionally runs shortly AFTER midnight instead of
 # starting before midnight and sleeping until midnight.
 #
+# The minute is deliberately NOT a round number (:00/:15/:30/:45).
+# GitHub's own docs warn that scheduled workflows can be delayed or
+# even dropped during high-load periods, and "the start of every
+# hour" is explicitly called out as a high-load time - everyone else's
+# cron piles up there too. An odd offset avoids that pile-up.
+# https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
+#
 # Flow:
-#   00:05 IST
+#   00:17 IST
 #      ↓
 #   GitHub Actions starts
 #      ↓
@@ -23,7 +30,7 @@ name: Daily Birthday SMS
 
 on:
   schedule:
-    - cron: "35 18 * * *" # 00:05 IST daily
+    - cron: "47 18 * * *" # 00:17 IST daily
     - cron: "10 6 * * *"  # TEMP full-flow test - 11:40 IST - remove after today
     - cron: "0 8 * * *"   # TEMP full-flow test - 13:30 IST - remove after today
     - cron: "0 10 * * *"  # TEMP full-flow test - 15:30 IST - remove after today
