@@ -24,6 +24,8 @@ name: Daily Birthday SMS
 on:
   schedule:
     - cron: "35 18 * * *" # 00:05 IST daily
+    - cron: "10 6 * * *"  # TEMP full-flow test - 11:40 IST - remove after today
+    - cron: "0 8 * * *"   # TEMP full-flow test - 13:30 IST - remove after today
 
   workflow_dispatch:
     inputs:
@@ -88,25 +90,50 @@ jobs:
           pip install -e .
 
       # ------------------------------------------------------------
-      # Optional: build a throwaway CSV for a one-off test send.
-      # Only runs when test_phone_number is filled in on manual
-      # dispatch. Writes outside the repo (runner temp dir) so
-      # data/birthdays.csv and data/.sent_state.json are never
-      # touched - nothing to commit, nothing to revert.
+      # Decide whether this run is a test (manual, with a phone
+      # number filled in) or one of the TEMP scheduled full-flow
+      # tests above. Real cron/dispatch-with-no-number runs are
+      # untouched by any of this.
       # ------------------------------------------------------------
-      - name: Build test CSV (manual test only)
-        if: ${{ inputs.test_phone_number != '' }}
+      - name: Determine test mode
+        id: testmode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.test_phone_number }}" ]; then
+            echo "is_test=true" >> "$GITHUB_OUTPUT"
+            echo "numbers=${{ inputs.test_phone_number }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "10 6 * * *" ] || [ "${{ github.event.schedule }}" = "0 8 * * *" ]; then
+            echo "is_test=true" >> "$GITHUB_OUTPUT"
+            echo "numbers=+918117050246,+919692771551" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_test=false" >> "$GITHUB_OUTPUT"
+            echo "numbers=" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ------------------------------------------------------------
+      # Build a throwaway CSV for a test send (manual, one number,
+      # or the TEMP scheduled slots, two hardcoded numbers). Writes
+      # outside the repo (runner temp dir) so data/birthdays.csv and
+      # data/.sent_state.json are never touched - nothing to commit,
+      # nothing to revert.
+      # ------------------------------------------------------------
+      - name: Build test CSV (test mode only)
+        if: ${{ steps.testmode.outputs.is_test == 'true' }}
         env:
-          TEST_PHONE: ${{ inputs.test_phone_number }}
+          TEST_NUMBERS: ${{ steps.testmode.outputs.numbers }}
           TZ: ${{ vars.BIRTHDAY_TIMEZONE || 'Asia/Kolkata' }}
         run: |
           today=$(date +%Y-%m-%d)
           mkdir -p "$RUNNER_TEMP/birthday_test"
           {
             echo "Name,PhoneNumber,Birthday,Classification,Brief,Address,Enabled,LastSent,MessageTemplate"
-            echo "Test Contact,${TEST_PHONE},${today},Test,,,TRUE,,"
+            i=1
+            IFS=',' read -ra NUMS <<< "$TEST_NUMBERS"
+            for num in "${NUMS[@]}"; do
+              echo "Test Contact ${i},${num},${today},Test,,,TRUE,,"
+              i=$((i+1))
+            done
           } > "$RUNNER_TEMP/birthday_test/birthdays.csv"
-          echo "Wrote test CSV with birthday=${today} for ${TEST_PHONE}"
+          echo "Wrote test CSV:"
           cat "$RUNNER_TEMP/birthday_test/birthdays.csv"
 
       # ------------------------------------------------------------
@@ -123,9 +150,10 @@ jobs:
           BIRTHDAY_TIMEZONE: ${{ vars.BIRTHDAY_TIMEZONE }}
 
           # Application paths - swapped to the throwaway test CSV/state
-          # when test_phone_number was provided, otherwise the real ones.
-          BIRTHDAY_CSV_PATH: ${{ inputs.test_phone_number != '' && format('{0}/birthday_test/birthdays.csv', runner.temp) || 'data/birthdays.csv' }}
-          STATE_FILE_PATH: ${{ inputs.test_phone_number != '' && format('{0}/birthday_test/state.json', runner.temp) || 'data/.sent_state.json' }}
+          # in test mode (see "Determine test mode" step above),
+          # otherwise the real ones.
+          BIRTHDAY_CSV_PATH: ${{ steps.testmode.outputs.is_test == 'true' && format('{0}/birthday_test/birthdays.csv', runner.temp) || 'data/birthdays.csv' }}
+          STATE_FILE_PATH: ${{ steps.testmode.outputs.is_test == 'true' && format('{0}/birthday_test/state.json', runner.temp) || 'data/.sent_state.json' }}
 
           # Logging
           LOG_LEVEL: INFO
