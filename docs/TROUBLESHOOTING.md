@@ -84,15 +84,80 @@ automatically after 60 days of repository inactivity** (no commits).
 Push any commit, or manually trigger the workflow once, to reactivate
 scheduled runs.
 
-This is handled automatically by
+The 60-day disable is handled automatically by
 [`.github/workflows/keepalive.yml`](../.github/workflows/keepalive.yml),
 which commits a small heartbeat timestamp
 (`.github/.keepalive`) on the 1st and 15th of every month - well
-inside the 60-day window - so `daily.yml` and `cron_ping.yml` never
-go quiet even if there are no birthdays or manual pushes for a long
-stretch. If schedules still appear disabled, check that this workflow
-itself is running (Actions → Repo Keepalive) and actually producing
-commits.
+inside the 60-day window - so `daily.yml`'s `schedule:` trigger never
+goes quiet even if there are no birthdays or manual pushes for a long
+stretch. (`cron_ping.yml` has no `schedule:` trigger at all - see
+below - so the 60-day rule doesn't apply to it.) If schedules still
+appear disabled, check that the keepalive workflow itself is running
+(Actions → Repo Keepalive) and actually producing commits.
+
+For the more common case - the trigger fired, but late by minutes to
+hours - that's expected GitHub behavior with no fix on this project's
+side; see the Limitations section in
+[`ARCHITECTURE.md`](ARCHITECTURE.md#13-limitations) and consider the
+external-scheduler setup in
+[`DEPLOYMENT.md`](DEPLOYMENT.md#step-9b---recommended-external-scheduler-for-on-time-triggers)
+if on-time delivery matters.
+
+## `cron_ping.yml` never runs on its own
+
+By design - it has no `schedule:` trigger (no dedupe logic, so a
+double-fire would be a real duplicate API call, not just wasted
+compute). It only runs via `workflow_dispatch` - manually, or through
+an external scheduler like cron-job.org. If it's not firing daily,
+check that your cron-job.org job (or equivalent) is configured and
+its execution history shows successful calls.
+
+## cron-job.org's test run returns 404 or "Unauthorized"
+
+Common causes, in order of likelihood:
+
+1. **Request method not set to POST** - GitHub's dispatch endpoint
+   returns 404 for any other method, including the default GET some
+   UIs silently start with. Explicitly select POST.
+2. **`Authorization` header malformed** - must be exactly
+   `Bearer <token>` (literal word "Bearer", one space, then the
+   token) - a missing "Bearer " prefix or extra whitespace causes
+   "Unauthorized."
+3. **"Requires HTTP authentication" toggle enabled** (a separate
+   Basic-Auth feature, not what we use) with empty username/password
+   - can cause a generic "non-well-formed job" error. Turn it off;
+   authentication happens via the custom header instead.
+4. **Token lacks the `Actions: Read and write` permission**, or was
+   scoped to the wrong repository.
+
+Isolate the problem by testing the exact same request from your own
+terminal first:
+```bash
+curl -i -X POST \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  -H "Content-Type: application/json" \
+  -d '{"ref":"main"}' \
+  https://api.github.com/repos/<owner>/<repo>/actions/workflows/daily.yml/dispatches
+```
+Expect `HTTP/1.1 204 No Content`. If this works but cron-job.org
+doesn't, the problem is in cron-job.org's saved configuration, not
+the token or GitHub's side.
+
+## A workflow file shows as `.github/workflows/name.yml #N` instead of its proper name, and fails instantly
+
+This means GitHub couldn't parse the workflow file at all (a startup
+failure, not a job failure) - it falls back to showing the raw path
+since it can't read the `name:` field. `yaml.safe_load()` won't catch
+this, since it only validates generic YAML syntax, not GitHub
+Actions' schema rules (e.g. `secrets.*` is not a valid context inside
+a step's `if:` condition - this exact bug broke both workflows in
+production for ~2.5 hours before being caught). Run
+[`actionlint`](https://github.com/rhysd/actionlint) locally
+(`pip install actionlint-py && actionlint .github/workflows/*.yml`)
+to catch this before pushing - it's also enforced in CI via
+`lint.yml`, so a PR with this class of bug should fail before merge.
 
 ## `curl` test from `SMS_GATEWAY_SETUP.md` works, but GitHub Actions doesn't
 

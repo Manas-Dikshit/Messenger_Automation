@@ -2,7 +2,7 @@ name: Daily Birthday SMS
 
 # GitHub Actions cron uses UTC.
 #
-# 18:47 UTC = 00:17 IST (next day).
+# 18:40 UTC = 00:10 IST (next day).
 #
 # The workflow intentionally runs shortly AFTER midnight instead of
 # starting before midnight and sleeping until midnight.
@@ -15,7 +15,7 @@ name: Daily Birthday SMS
 # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
 #
 # Flow:
-#   00:17 IST
+#   00:10 IST
 #      ↓
 #   GitHub Actions starts
 #      ↓
@@ -30,12 +30,7 @@ name: Daily Birthday SMS
 
 on:
   schedule:
-    - cron: "47 18 * * *" # 00:17 IST daily
-    - cron: "10 6 * * *"  # TEMP full-flow test - 11:40 IST - remove after today
-    - cron: "7 8 * * *"   # TEMP full-flow test - 13:37 IST - remove after today
-    - cron: "13 10 * * *" # TEMP full-flow test - 15:43 IST - remove after today
-    - cron: "22 12 * * *" # TEMP full-flow test - 17:52 IST - remove after today
-    - cron: "37 14 * * *" # TEMP full-flow test - 20:07 IST - remove after today
+    - cron: "40 18 * * *" # 00:10 IST daily
 
   workflow_dispatch:
     inputs:
@@ -82,6 +77,23 @@ jobs:
           fetch-depth: 1
 
       # ------------------------------------------------------------
+      # Decide whether this run is a test: a manual dispatch (via the
+      # UI or an API workflow_dispatch call) with test_phone_number
+      # filled in. Scheduled and no-number runs are real runs against
+      # the real CSV.
+      # ------------------------------------------------------------
+      - name: Determine test mode
+        id: testmode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.test_phone_number }}" ]; then
+            echo "is_test=true" >> "$GITHUB_OUTPUT"
+            echo "numbers=${{ inputs.test_phone_number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_test=false" >> "$GITHUB_OUTPUT"
+            echo "numbers=" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ------------------------------------------------------------
       # Python
       # ------------------------------------------------------------
       - name: Set up Python 3.12
@@ -100,32 +112,8 @@ jobs:
           pip install -e .
 
       # ------------------------------------------------------------
-      # Decide whether this run is a test (manual, with a phone
-      # number filled in) or one of the TEMP scheduled full-flow
-      # tests above. Real cron/dispatch-with-no-number runs are
-      # untouched by any of this.
-      # ------------------------------------------------------------
-      - name: Determine test mode
-        id: testmode
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.test_phone_number }}" ]; then
-            echo "is_test=true" >> "$GITHUB_OUTPUT"
-            echo "numbers=${{ inputs.test_phone_number }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.schedule }}" = "10 6 * * *" ] || \
-               [ "${{ github.event.schedule }}" = "7 8 * * *" ] || \
-               [ "${{ github.event.schedule }}" = "13 10 * * *" ] || \
-               [ "${{ github.event.schedule }}" = "22 12 * * *" ] || \
-               [ "${{ github.event.schedule }}" = "37 14 * * *" ]; then
-            echo "is_test=true" >> "$GITHUB_OUTPUT"
-            echo "numbers=+918117050246,+919692771551" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_test=false" >> "$GITHUB_OUTPUT"
-            echo "numbers=" >> "$GITHUB_OUTPUT"
-          fi
-
-      # ------------------------------------------------------------
-      # Build a throwaway CSV for a test send (manual, one number,
-      # or the TEMP scheduled slots, two hardcoded numbers). Writes
+      # Build a throwaway CSV for a test send (one or more numbers,
+      # comma-separated, from the test_phone_number input). Writes
       # outside the repo (runner temp dir) so data/birthdays.csv and
       # data/.sent_state.json are never touched - nothing to commit,
       # nothing to revert.
@@ -182,6 +170,12 @@ jobs:
 
           # Manual dry-run option
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
+
+          # GITHUB_EVENT_NAME/GITHUB_SERVER_URL/GITHUB_REPOSITORY/GITHUB_RUN_ID
+          # are set automatically by Actions. The cron string that
+          # actually fired is NOT auto-exposed, so pass it explicitly -
+          # shown in the run summary to help diagnose scheduling delays.
+          GITHUB_EVENT_SCHEDULE: ${{ github.event.schedule }}
 
         run: |
           python -m birthday_sms.main

@@ -59,3 +59,18 @@ class SendResult:
     message_id: str | None = None
     error: str | None = None
     rendered_message: str | None = None
+    sent_at: str | None = None
+    delivered_at: str | None = None
+    retry_attempts: int | None = None
+
+
+@dataclass(slots=True)
+class RunMetadata:
+    """Context about the run itself, for the step-summary report."""
+
+    trigger_event: str = "unknown"
+    trigger_schedule: str | None = None
+    dry_run: bool = False
+    started_at: str | None = None
+    completed_at: str | None = None
+    run_url: str | None = None

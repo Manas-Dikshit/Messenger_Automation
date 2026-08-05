@@ -97,6 +97,11 @@ Sender's own SIM card → Recipient's phone
   skill required for day-to-day use.
 - **Dedupe protection.** The app keeps a small state file so nobody
   gets double-texted if the workflow happens to run twice in a day.
+- **Optional external scheduler.** GitHub's own daily trigger has no
+  timing guarantee and can run late by minutes to hours. An optional,
+  free service ([cron-job.org](https://cron-job.org)) can trigger the
+  same workflow on time instead - GitHub's own schedule stays as a
+  free backup either way.
 - **Delivery confirmation.** After sending, the app polls the gateway
   until each message is confirmed `Delivered` (or `Failed`). If the
   recipient's phone is off, the message is remembered as *unconfirmed*

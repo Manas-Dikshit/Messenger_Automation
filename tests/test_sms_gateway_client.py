@@ -40,6 +40,7 @@ class TestSmsGatewayClient:
 
         assert result.message_id == "msg-123"
         assert result.state == "Pending"
+        assert result.attempts == 1
 
     @responses.activate
     def test_send_sms_authentication_failure_not_retried(self):
@@ -75,6 +76,7 @@ class TestSmsGatewayClient:
         result = client.send_sms("+919876543210", "Happy Birthday!")
 
         assert result.message_id == "msg-456"
+        assert result.attempts == 2
         assert len(responses.calls) == 2
 
     @responses.activate

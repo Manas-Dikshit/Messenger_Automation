@@ -107,7 +107,7 @@ is pushed to the default branch. Confirm it's active:
 ## Step 9 - Let It Run
 
 From here, no further action is needed. The `daily.yml` workflow wakes
-up shortly after midnight, at 00:17 IST (18:47 UTC), checks whether
+up shortly after midnight, at 00:10 IST (18:40 UTC), checks whether
 anyone's birthday is today, and sends immediately if so, then commits
 the updated sent-state file - all without the PC or the repository
 owner doing anything. On nights with no birthdays, the run exits
@@ -115,6 +115,49 @@ within seconds. Note GitHub does not guarantee this trigger fires
 exactly on time - see the Limitations section in
 [`ARCHITECTURE.md`](ARCHITECTURE.md#13-limitations) for how much it
 can actually drift.
+
+## Step 9b - (Recommended) External Scheduler for On-Time Triggers
+
+GitHub's own `schedule:` trigger has no timing guarantee and can be
+delayed by minutes to hours, or occasionally dropped, especially
+during high-load periods. `workflow_dispatch` (manual, or via API),
+by contrast, runs promptly - it's the same trigger used by the "Run
+workflow" button.
+
+[cron-job.org](https://cron-job.org) (free) is used to call GitHub's
+`workflow_dispatch` API on a precise schedule, so the actual trigger
+time no longer depends on GitHub's scheduling queue:
+
+1. Create a GitHub fine-grained Personal Access Token: **Settings →
+   Developer settings → Personal access tokens → Fine-grained
+   tokens**. Scope it to only this repository, with **Actions: Read
+   and write** permission - nothing else.
+2. Sign up at [cron-job.org](https://cron-job.org).
+3. Create a cronjob:
+   - URL: `https://api.github.com/repos/<owner>/<repo>/actions/workflows/daily.yml/dispatches`
+   - Request method: **POST**
+   - Schedule: "Every day at" the same time as your `daily.yml` cron
+     (in UTC)
+   - Headers: `Authorization: Bearer <token>`,
+     `Accept: application/vnd.github+json`,
+     `Content-Type: application/json`,
+     `X-GitHub-Api-Version: 2022-11-28`
+   - Request body: `{"ref":"main"}`
+4. Test with cron-job.org's **Test run** button - a `204` response
+   means success; check the Actions tab for a new `workflow_dispatch`
+   run.
+
+GitHub's own `schedule:` cron is left in place as a free backup - if
+cron-job.org ever fails to fire, GitHub's (slower, but eventually
+working) scheduler still catches it. The dedupe logic in
+`state_store.py` means there's no risk of a duplicate SMS if both
+happen to fire the same day.
+
+**Note:** `cron_ping.yml` has no dedupe logic, so it intentionally has
+**no** `schedule:` trigger at all - only `workflow_dispatch`, so it
+must be driven entirely by an external scheduler like cron-job.org
+to run daily. Running it twice would be a real duplicate API call,
+not just wasted compute.
 
 A separate `.github/workflows/keepalive.yml` runs twice a month and
 commits a small heartbeat file for one reason only: GitHub disables

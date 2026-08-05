@@ -1,21 +1,14 @@
 name: Daily Cron Ping
 
-# GitHub Actions cron uses UTC.
-# 10:17 IST = 04:47 UTC. Adjust if a different timezone is intended.
-#
-# The minute is deliberately NOT a round number (:00/:15/:30/:45).
-# GitHub's docs warn scheduled workflows can be delayed or dropped
-# during high-load periods, and "the start of every hour" is called
-# out as high-load - an odd offset avoids that pile-up.
-# https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
+# No `schedule:` trigger here on purpose. This job has no dedupe
+# logic (unlike daily.yml's per-contact-per-year check), so running
+# it twice a day for the same target would be a real duplicate API
+# call, not just wasted compute. An external scheduler (cron-job.org)
+# calls this via workflow_dispatch at 10:17 IST daily instead -
+# workflow_dispatch always runs promptly, unlike GitHub's own
+# schedule queue which can be delayed by hours or occasionally
+# dropped (see daily.yml's comments / ARCHITECTURE.md for the story).
 on:
-  schedule:
-    - cron: "47 4 * * *" # 10:17 IST daily
-    - cron: "17 6 * * *"  # TEMP test slot - 11:47 IST - remove after today
-    - cron: "3 7 * * *"   # TEMP test slot - 12:33 IST - remove after today
-    - cron: "8 9 * * *"   # TEMP test slot - 14:38 IST - remove after today
-    - cron: "12 12 * * *" # TEMP test slot - 17:42 IST - remove after today
-    - cron: "17 15 * * *" # TEMP test slot - 20:47 IST - remove after today
   workflow_dispatch: {}
 
 jobs:

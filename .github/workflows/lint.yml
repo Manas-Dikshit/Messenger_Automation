@@ -11,6 +11,30 @@ permissions:
   contents: read
 
 jobs:
+  actionlint:
+    name: Lint GitHub Actions workflow files
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Catches GitHub Actions schema violations that generic YAML
+      # parsing can't - e.g. using an invalid context (like `secrets`)
+      # inside a step's `if:` condition. That exact bug silently broke
+      # daily.yml and cron_ping.yml in production for ~2.5 hours before
+      # this check existed (see commit 7cf9890 for the fix and story).
+      - name: Install actionlint
+        run: pip install actionlint-py
+
+      - name: Run actionlint
+        run: actionlint .github/workflows/*.yml
+
   lint-and-test:
     name: Lint and test on Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest

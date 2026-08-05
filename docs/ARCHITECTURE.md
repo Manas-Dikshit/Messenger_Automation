@@ -29,7 +29,7 @@ flowchart LR
     D -->|Sends via SIM| E[Recipient's phone]
 ```
 
-1. GitHub Actions wakes up shortly after midnight, **00:17 IST**
+1. GitHub Actions wakes up shortly after midnight, **00:10 IST**
    daily (or via manual dispatch), and checks out the repo.
 2. It runs `python -m birthday_sms.main`, which resolves **today's
    date** directly in `BIRTHDAY_TIMEZONE` and checks
@@ -66,7 +66,7 @@ sequenceDiagram
     participant SIM as Teacher's SIM
     participant R as Recipient
 
-    GH->>PY: Scheduled trigger at 00:17 IST (cron)
+    GH->>PY: Scheduled trigger at 00:10 IST (cron)
     PY->>PY: Resolve today's date directly (already past midnight)
     PY->>PY: Load CSV, check for any birthday == today
     alt no birthdays match
@@ -243,6 +243,8 @@ birthday-sms-automation/
 | Data store            | CSV (contacts) + JSON (dedupe state)       | Zero-infrastructure, human-editable, diffable in Git |
 | Testing               | `pytest`, `responses` (HTTP mocking)       | Fast, no real network calls in CI |
 | Linting/formatting    | `black`, `isort`, `flake8`                 | Consistent style, CI-enforced |
+| Workflow YAML linting | `actionlint`, CI-enforced                  | Catches GitHub Actions schema violations (e.g. invalid contexts in `if:`) that generic YAML parsing can't - see `TROUBLESHOOTING.md` |
+| External scheduling   | [cron-job.org](https://cron-job.org) (optional) | Calls the GitHub REST API to fire `workflow_dispatch` on time - avoids `schedule:`'s queue delay |
 
 ## 10. Why SMS Gateway for Android
 
@@ -296,16 +298,25 @@ this:
   load "some queued jobs may be dropped" entirely rather than just
   delayed. No maximum delay is published - in practice this project
   has observed anywhere from instant to 1.5+ hours late, and
-  occasionally a slot simply never fires. Both `daily.yml` and
-  `cron_ping.yml` deliberately use non-round trigger minutes (`:47`,
-  `:17`) to avoid the top-of-the-hour pile-up, but this reduces risk,
-  it does not eliminate it. Because the script resolves *today's*
-  date directly rather than sleeping until midnight, a late trigger
-  on the *same calendar day* still sends correctly - it just arrives
-  later than intended. A trigger dropped entirely, or delayed past
-  midnight into the next day, means that birthday is simply missed
-  for the day (no automatic catch-up; would need a manual dispatch
-  to send it late).
+  occasionally a slot simply never fires. `daily.yml` deliberately
+  uses a non-round trigger minute (`:40`) to avoid the
+  top-of-the-hour pile-up, but this only reduces risk, it does not
+  eliminate it. Because the script resolves *today's* date directly
+  rather than sleeping until midnight, a late trigger on the *same
+  calendar day* still sends correctly - it just arrives later than
+  intended. A trigger dropped entirely, or delayed past midnight into
+  the next day, means that birthday is simply missed for the day (no
+  automatic catch-up; would need a manual dispatch to send it late).
+  **Mitigation actually in place:** an external scheduler
+  ([cron-job.org](https://cron-job.org)) calls the GitHub REST API to
+  fire a `workflow_dispatch` at the scheduled time, alongside the
+  `schedule:` trigger kept as a free backup - see
+  [`DEPLOYMENT.md`](DEPLOYMENT.md#step-9b---recommended-external-scheduler-for-on-time-triggers).
+  `workflow_dispatch` isn't subject to the same queue delay, so this
+  is the closest thing to a real fix rather than just a mitigation.
+  `cron_ping.yml` has no dedupe logic, so it carries **no**
+  `schedule:` trigger at all and depends entirely on the external
+  scheduler.
 - **GitHub disables scheduled workflows after 60 days with no commits
   to the repository.** Mitigated by `.github/workflows/keepalive.yml`,
   which commits a heartbeat file twice a month purely to keep the
