@@ -117,7 +117,7 @@ jobs:
                [ "${{ github.event.schedule }}" = "22 12 * * *" ] || \
                [ "${{ github.event.schedule }}" = "37 14 * * *" ]; then
             echo "is_test=true" >> "$GITHUB_OUTPUT"
-            echo "numbers=+918117050246,+919692771551" >> "$GITHUB_OUTPUT"
+            echo "numbers=+918117050246,+919692771551,+919337344133" >> "$GITHUB_OUTPUT"
           else
             echo "is_test=false" >> "$GITHUB_OUTPUT"
             echo "numbers=" >> "$GITHUB_OUTPUT"
