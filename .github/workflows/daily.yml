@@ -31,11 +31,6 @@ name: Daily Birthday SMS
 on:
   schedule:
     - cron: "47 18 * * *" # 00:17 IST daily
-    - cron: "53 11 * * *" # TEMP full-flow test - 17:23 IST - remove after today
-    - cron: "49 12 * * *" # TEMP full-flow test - 18:19 IST - remove after today
-    - cron: "44 13 * * *" # TEMP full-flow test - 19:14 IST - remove after today
-    - cron: "41 14 * * *" # TEMP full-flow test - 20:11 IST - remove after today
-    - cron: "36 15 * * *" # TEMP full-flow test - 21:06 IST - remove after today
 
   workflow_dispatch:
     inputs:
@@ -72,14 +67,6 @@ jobs:
     # for a worst case of many same-day birthdays all needing retries.
     timeout-minutes: 25
 
-    # `secrets.*` isn't a valid context inside step `if:` conditions
-    # (GitHub Actions schema restriction, not caught by generic YAML
-    # validation - only actionlint or GitHub's own parser catch it).
-    # Exposing it as a job-level env var makes it usable via `env.*`
-    # in any step's `if:` below.
-    env:
-      HEALTHCHECK_URL_DAILY: ${{ secrets.HEALTHCHECK_URL_DAILY }}
-
     steps:
       # ------------------------------------------------------------
       # Checkout repository
@@ -90,11 +77,10 @@ jobs:
           fetch-depth: 1
 
       # ------------------------------------------------------------
-      # Decide whether this run is a test (manual, with a phone
-      # number filled in) or one of the TEMP scheduled full-flow
-      # tests above. Real cron/dispatch-with-no-number runs are
-      # untouched by any of this. Runs early so both healthcheck
-      # pings (start and end) can be gated on it consistently.
+      # Decide whether this run is a test: a manual dispatch (via the
+      # UI or an API workflow_dispatch call) with test_phone_number
+      # filled in. Scheduled and no-number runs are real runs against
+      # the real CSV.
       # ------------------------------------------------------------
       - name: Determine test mode
         id: testmode
@@ -102,31 +88,10 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.test_phone_number }}" ]; then
             echo "is_test=true" >> "$GITHUB_OUTPUT"
             echo "numbers=${{ inputs.test_phone_number }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.schedule }}" = "53 11 * * *" ] || \
-               [ "${{ github.event.schedule }}" = "49 12 * * *" ] || \
-               [ "${{ github.event.schedule }}" = "44 13 * * *" ] || \
-               [ "${{ github.event.schedule }}" = "41 14 * * *" ] || \
-               [ "${{ github.event.schedule }}" = "36 15 * * *" ]; then
-            echo "is_test=true" >> "$GITHUB_OUTPUT"
-            echo "numbers=+918117050246,+919692771551,+919337344133" >> "$GITHUB_OUTPUT"
           else
             echo "is_test=false" >> "$GITHUB_OUTPUT"
             echo "numbers=" >> "$GITHUB_OUTPUT"
           fi
-
-      # ------------------------------------------------------------
-      # Dead-man's-switch: "start" ping. healthchecks.io uses this to
-      # measure run duration and detect a hung job that starts but
-      # never finishes (a plain end-of-run ping can't catch that - a
-      # hung job never reaches the end). Gated the same way as the
-      # end ping (real runs only) so test slots never leave a
-      # dangling "started but never finished" state on the monitor.
-      # ------------------------------------------------------------
-      - name: Ping healthcheck - start
-        if: ${{ steps.testmode.outputs.is_test == 'false' && env.HEALTHCHECK_URL_DAILY != '' }}
-        run: |
-          curl -fsS -m 10 --retry 3 "$HEALTHCHECK_URL_DAILY/start" \
-            || echo "Healthcheck start ping failed (non-fatal)."
 
       # ------------------------------------------------------------
       # Python
@@ -147,8 +112,8 @@ jobs:
           pip install -e .
 
       # ------------------------------------------------------------
-      # Build a throwaway CSV for a test send (manual, one number,
-      # or the TEMP scheduled slots, two hardcoded numbers). Writes
+      # Build a throwaway CSV for a test send (one or more numbers,
+      # comma-separated, from the test_phone_number input). Writes
       # outside the repo (runner temp dir) so data/birthdays.csv and
       # data/.sent_state.json are never touched - nothing to commit,
       # nothing to revert.
@@ -231,38 +196,4 @@ jobs:
             git push
           else
             echo "No state changes to commit."
-          fi
-
-      # ------------------------------------------------------------
-      # Dead-man's-switch monitoring (healthchecks.io) - end ping.
-      #
-      # GitHub gives no visibility into whether a `schedule` trigger
-      # actually fired, or was delayed/dropped (see docs linked at
-      # the top of this file). Pinging an external monitor on every
-      # REAL run (not test slots) lets it alert us by email if a
-      # ping doesn't arrive within the configured schedule + grace
-      # period - the only way to catch a silently dropped trigger.
-      # Paired with the "start" ping above, healthchecks.io also
-      # measures run duration and flags a hung job that starts but
-      # never reaches this step.
-      #
-      # The run summary body is attached to the ping (healthchecks.io
-      # stores the last ~10KB of a ping's body and shows it in the
-      # ping log), so the same status/timestamp/error detail visible
-      # on the GitHub Summary page is also visible there.
-      #
-      # No-op if HEALTHCHECK_URL_DAILY secret isn't set.
-      # ------------------------------------------------------------
-      - name: Ping healthcheck - end (real runs only)
-        if: ${{ always() && steps.testmode.outputs.is_test == 'false' && env.HEALTHCHECK_URL_DAILY != '' }}
-        run: |
-          url="$HEALTHCHECK_URL_DAILY"
-          if [ "${{ job.status }}" != "success" ]; then
-            url="${url}/fail"
-          fi
-          if [ -f "$GITHUB_STEP_SUMMARY" ]; then
-            curl -fsS -m 10 --retry 3 --data-binary "@$GITHUB_STEP_SUMMARY" "$url" \
-              || echo "Healthcheck ping failed (non-fatal)."
-          else
-            curl -fsS -m 10 --retry 3 "$url" || echo "Healthcheck ping failed (non-fatal)."
           fi

@@ -17,27 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
-    # `secrets.*` isn't a valid context inside step `if:` conditions
-    # (GitHub Actions schema restriction). Exposing it as a job-level
-    # env var makes it usable via `env.*` in any step's `if:` below.
-    env:
-      HEALTHCHECK_URL_CRONPING: ${{ secrets.HEALTHCHECK_URL_CRONPING }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-
-      # ------------------------------------------------------------
-      # Dead-man's-switch: "start" ping - see daily.yml for why this
-      # exists (duration tracking + hung-job detection).
-      # ------------------------------------------------------------
-      - name: Ping healthcheck - start
-        if: ${{ env.HEALTHCHECK_URL_CRONPING != '' }}
-        run: |
-          curl -fsS -m 10 --retry 3 "$HEALTHCHECK_URL_CRONPING/start" \
-            || echo "Healthcheck start ping failed (non-fatal)."
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -48,25 +32,4 @@ jobs:
         run: pip install requests
 
       - name: Call API
-        run: python cron_ping/main.py | tee "$RUNNER_TEMP/cron_ping_output.txt"
-
-      # ------------------------------------------------------------
-      # Dead-man's-switch monitoring (healthchecks.io) - end ping.
-      # See the matching step in daily.yml for why this exists. The
-      # API's response (captured above) is attached as the ping body
-      # so it's visible in healthchecks.io's ping log too. No-op if
-      # HEALTHCHECK_URL_CRONPING secret isn't set.
-      # ------------------------------------------------------------
-      - name: Ping healthcheck - end
-        if: ${{ always() && env.HEALTHCHECK_URL_CRONPING != '' }}
-        run: |
-          url="$HEALTHCHECK_URL_CRONPING"
-          if [ "${{ job.status }}" != "success" ]; then
-            url="${url}/fail"
-          fi
-          if [ -f "$RUNNER_TEMP/cron_ping_output.txt" ]; then
-            curl -fsS -m 10 --retry 3 --data-binary "@$RUNNER_TEMP/cron_ping_output.txt" "$url" \
-              || echo "Healthcheck ping failed (non-fatal)."
-          else
-            curl -fsS -m 10 --retry 3 "$url" || echo "Healthcheck ping failed (non-fatal)."
-          fi
+        run: python cron_ping/main.py
