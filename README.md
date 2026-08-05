@@ -101,8 +101,8 @@ Full walkthrough: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
    has no timing guarantee (see [Limitations](docs/ARCHITECTURE.md#13-limitations)),
    so an external scheduler ([cron-job.org](https://cron-job.org),
    optional but recommended) can call the same workflow via
-   `workflow_dispatch` on time instead — see
-   [`DEPLOYMENT.md`](docs/DEPLOYMENT.md#step-9b---recommended-external-scheduler-for-on-time-triggers).
+   `workflow_dispatch` on time instead — full setup guide in
+   [`docs/CRON_JOB_ORG_SETUP.md`](docs/CRON_JOB_ORG_SETUP.md).
 2. The Python script resolves **today's date** in that timezone and
    loads every contact from `data/birthdays.csv`.
 3. For each contact: skipped if disabled (`Enabled=FALSE`), skipped
@@ -337,6 +337,7 @@ phone for the SMS.
 | [`docs/SECURITY.md`](docs/SECURITY.md) | Threat model, secrets handling, credential rotation/revocation |
 | [`docs/SMS_GATEWAY_SETUP.md`](docs/SMS_GATEWAY_SETUP.md) | Android app installation, permissions, Cloud Mode setup |
 | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Step-by-step from clone to fully running system |
+| [`docs/CRON_JOB_ORG_SETUP.md`](docs/CRON_JOB_ORG_SETUP.md) | External scheduler setup - token creation, job config, curl self-tests, troubleshooting |
 | [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | Symptom → cause → fix reference |
 | [`docs/FAQ.md`](docs/FAQ.md) | Common questions |
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | Dev setup, style, PR process |

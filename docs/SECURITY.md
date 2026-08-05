@@ -107,9 +107,14 @@ triggering (and cancelling) workflow runs on this repository.
 - **Never paste this token into chat, screenshots, issues, or commit
   messages.** If it's ever exposed this way, treat it as compromised
   immediately - revoke and regenerate, don't wait.
-- **Rotate on the token's own expiration schedule** (fine-grained
-  tokens require an expiration date, e.g. 90 days) - update the value
-  in the scheduler's header configuration, not in this repository.
+- **This project's guide sets the token to "No expiration"** (see
+  [`CRON_JOB_ORG_SETUP.md`](CRON_JOB_ORG_SETUP.md)) to avoid the
+  scheduler silently breaking when a fixed expiry lapses. That
+  tradeoff means there's no automatic forcing function to rotate it -
+  if you suspect it's leaked, revoke and regenerate immediately
+  rather than waiting for an expiry that will never come. If you
+  chose a fixed expiry instead, update the new value in the
+  scheduler's header configuration, not in this repository.
 - **Worst-case blast radius if leaked**: the holder can trigger or
   cancel workflow runs on this repo (including sending real SMS via
   `daily.yml`, or hitting the ping endpoint via `cron_ping.yml`).

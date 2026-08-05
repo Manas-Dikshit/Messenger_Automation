@@ -15,8 +15,8 @@ observed delays of over an hour and at least one dropped run.
 via the `workflow_dispatch` API on a precise schedule instead, which
 doesn't share GitHub's scheduling queue and runs promptly. It's
 optional - GitHub's own cron is kept as a free backup - but
-recommended if on-time delivery matters to you. See
-[`DEPLOYMENT.md`](DEPLOYMENT.md#step-9b---recommended-external-scheduler-for-on-time-triggers).
+recommended if on-time delivery matters to you. Full setup guide:
+[`CRON_JOB_ORG_SETUP.md`](CRON_JOB_ORG_SETUP.md).
 
 **Q: Does this cost money?**
 GitHub Actions is free for a daily job at this scale on most account
