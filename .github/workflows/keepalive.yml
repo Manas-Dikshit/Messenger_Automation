@@ -35,8 +35,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          if ! git diff --quiet -- .github/.keepalive; then
-            git add .github/.keepalive
+          git add .github/.keepalive
+
+          if ! git diff --cached --quiet -- .github/.keepalive; then
             git commit -m "chore: keepalive heartbeat [skip ci]"
             git push
           else
