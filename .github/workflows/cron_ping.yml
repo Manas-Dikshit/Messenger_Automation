@@ -1,21 +1,14 @@
 name: Daily Cron Ping
 
-# GitHub Actions cron uses UTC.
-# 10:17 IST = 04:47 UTC. Adjust if a different timezone is intended.
-#
-# The minute is deliberately NOT a round number (:00/:15/:30/:45).
-# GitHub's docs warn scheduled workflows can be delayed or dropped
-# during high-load periods, and "the start of every hour" is called
-# out as high-load - an odd offset avoids that pile-up.
-# https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
+# No `schedule:` trigger here on purpose. This job has no dedupe
+# logic (unlike daily.yml's per-contact-per-year check), so running
+# it twice a day for the same target would be a real duplicate API
+# call, not just wasted compute. An external scheduler (cron-job.org)
+# calls this via workflow_dispatch at 10:17 IST daily instead -
+# workflow_dispatch always runs promptly, unlike GitHub's own
+# schedule queue which can be delayed by hours or occasionally
+# dropped (see daily.yml's comments / ARCHITECTURE.md for the story).
 on:
-  schedule:
-    - cron: "47 4 * * *" # 10:17 IST daily
-    - cron: "1 12 * * *"  # TEMP test slot - 17:31 IST - remove after today
-    - cron: "57 12 * * *" # TEMP test slot - 18:27 IST - remove after today
-    - cron: "52 13 * * *" # TEMP test slot - 19:22 IST - remove after today
-    - cron: "48 14 * * *" # TEMP test slot - 20:18 IST - remove after today
-    - cron: "43 15 * * *" # TEMP test slot - 21:13 IST - remove after today
   workflow_dispatch: {}
 
 jobs:
@@ -38,17 +31,10 @@ jobs:
 
       # ------------------------------------------------------------
       # Dead-man's-switch: "start" ping - see daily.yml for why this
-      # exists (duration tracking + hung-job detection). Only on the
-      # permanent slot / manual runs, not the TEMP test slots.
+      # exists (duration tracking + hung-job detection).
       # ------------------------------------------------------------
       - name: Ping healthcheck - start
-        if: >-
-          ${{ env.HEALTHCHECK_URL_CRONPING != '' &&
-          github.event.schedule != '1 12 * * *' &&
-          github.event.schedule != '57 12 * * *' &&
-          github.event.schedule != '52 13 * * *' &&
-          github.event.schedule != '48 14 * * *' &&
-          github.event.schedule != '43 15 * * *' }}
+        if: ${{ env.HEALTHCHECK_URL_CRONPING != '' }}
         run: |
           curl -fsS -m 10 --retry 3 "$HEALTHCHECK_URL_CRONPING/start" \
             || echo "Healthcheck start ping failed (non-fatal)."
@@ -66,20 +52,13 @@ jobs:
 
       # ------------------------------------------------------------
       # Dead-man's-switch monitoring (healthchecks.io) - end ping.
-      # See the matching step in daily.yml for why this exists. Only
-      # pings on the permanent slot / manual runs, not the TEMP test
-      # slots. The API's response (captured above) is attached as the
-      # ping body so it's visible in healthchecks.io's ping log too.
-      # No-op if HEALTHCHECK_URL_CRONPING secret isn't set.
+      # See the matching step in daily.yml for why this exists. The
+      # API's response (captured above) is attached as the ping body
+      # so it's visible in healthchecks.io's ping log too. No-op if
+      # HEALTHCHECK_URL_CRONPING secret isn't set.
       # ------------------------------------------------------------
-      - name: Ping healthcheck - end (real runs only)
-        if: >-
-          ${{ always() && env.HEALTHCHECK_URL_CRONPING != '' &&
-          github.event.schedule != '1 12 * * *' &&
-          github.event.schedule != '57 12 * * *' &&
-          github.event.schedule != '52 13 * * *' &&
-          github.event.schedule != '48 14 * * *' &&
-          github.event.schedule != '43 15 * * *' }}
+      - name: Ping healthcheck - end
+        if: ${{ always() && env.HEALTHCHECK_URL_CRONPING != '' }}
         run: |
           url="$HEALTHCHECK_URL_CRONPING"
           if [ "${{ job.status }}" != "success" ]; then
