@@ -107,7 +107,7 @@ is pushed to the default branch. Confirm it's active:
 ## Step 9 - Let It Run
 
 From here, no further action is needed. The `daily.yml` workflow wakes
-up shortly after midnight, at 00:17 IST (18:47 UTC), checks whether
+up shortly after midnight, at 00:10 IST (18:40 UTC), checks whether
 anyone's birthday is today, and sends immediately if so, then commits
 the updated sent-state file - all without the PC or the repository
 owner doing anything. On nights with no birthdays, the run exits

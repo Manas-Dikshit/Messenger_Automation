@@ -29,7 +29,7 @@ flowchart LR
     D -->|Sends via SIM| E[Recipient's phone]
 ```
 
-1. GitHub Actions wakes up shortly after midnight, **00:17 IST**
+1. GitHub Actions wakes up shortly after midnight, **00:10 IST**
    daily (or via manual dispatch), and checks out the repo.
 2. It runs `python -m birthday_sms.main`, which resolves **today's
    date** directly in `BIRTHDAY_TIMEZONE` and checks
@@ -66,7 +66,7 @@ sequenceDiagram
     participant SIM as Teacher's SIM
     participant R as Recipient
 
-    GH->>PY: Scheduled trigger at 00:17 IST (cron)
+    GH->>PY: Scheduled trigger at 00:10 IST (cron)
     PY->>PY: Resolve today's date directly (already past midnight)
     PY->>PY: Load CSV, check for any birthday == today
     alt no birthdays match
