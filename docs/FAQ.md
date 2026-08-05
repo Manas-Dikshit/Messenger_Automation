@@ -5,6 +5,19 @@ No. The scheduled job runs entirely on GitHub's infrastructure. The
 only device that needs to be on and connected to the internet is the
 teacher's Android phone.
 
+**Q: Why does the project mention cron-job.org? Isn't GitHub Actions'
+own schedule enough?**
+GitHub's own `schedule:` trigger has no timing guarantee - GitHub's
+own docs say it can be delayed during high load, or occasionally
+dropped, with no maximum delay published. In practice this project
+observed delays of over an hour and at least one dropped run.
+[cron-job.org](https://cron-job.org) (free) calls the same workflow
+via the `workflow_dispatch` API on a precise schedule instead, which
+doesn't share GitHub's scheduling queue and runs promptly. It's
+optional - GitHub's own cron is kept as a free backup - but
+recommended if on-time delivery matters to you. See
+[`DEPLOYMENT.md`](DEPLOYMENT.md#step-9b---recommended-external-scheduler-for-on-time-triggers).
+
 **Q: Does this cost money?**
 GitHub Actions is free for a daily job at this scale on most account
 tiers. The SMS Gateway app itself is open source. The only cost is

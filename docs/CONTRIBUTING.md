@@ -32,6 +32,27 @@ isort src tests
 flake8 src tests
 ```
 
+## Editing GitHub Actions Workflow Files
+
+Changes to any `.github/workflows/*.yml` file must pass
+[`actionlint`](https://github.com/rhysd/actionlint), also enforced in
+CI. This catches GitHub Actions schema violations - like using
+`secrets.*` inside a step's `if:` condition (invalid; only
+`env`/`github`/`inputs`/`job`/`matrix`/`needs`/`runner`/`steps`/
+`strategy`/`vars` are allowed there) - that generic YAML parsing
+(`yaml.safe_load`) cannot catch. This exact bug silently broke both
+`daily.yml` and `cron_ping.yml` in production for ~2.5 hours before
+this check existed.
+
+```bash
+pip install actionlint-py
+actionlint .github/workflows/*.yml
+```
+
+Run this locally before pushing any workflow change - don't rely on
+CI alone to catch it, since a broken schedule trigger can go
+unnoticed for hours.
+
 ## Making Changes
 
 1. Fork the repository and create a feature branch.

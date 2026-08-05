@@ -97,7 +97,12 @@ Full walkthrough: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 1. **GitHub Actions triggers** `.github/workflows/daily.yml` on a
    cron schedule, timed to fire shortly after midnight in
-   `BIRTHDAY_TIMEZONE` (default `Asia/Kolkata`).
+   `BIRTHDAY_TIMEZONE` (default `Asia/Kolkata`). GitHub's own cron
+   has no timing guarantee (see [Limitations](docs/ARCHITECTURE.md#13-limitations)),
+   so an external scheduler ([cron-job.org](https://cron-job.org),
+   optional but recommended) can call the same workflow via
+   `workflow_dispatch` on time instead — see
+   [`DEPLOYMENT.md`](docs/DEPLOYMENT.md#step-9b---recommended-external-scheduler-for-on-time-triggers).
 2. The Python script resolves **today's date** in that timezone and
    loads every contact from `data/birthdays.csv`.
 3. For each contact: skipped if disabled (`Enabled=FALSE`), skipped
@@ -241,6 +246,10 @@ pytest --cov=birthday_sms --cov-report=term-missing
 Tests cover CSV parsing/validation, date parsing, message rendering,
 retry/backoff behavior against a mocked HTTP layer (no real network
 calls), and the full send orchestration logic.
+
+Changes to any `.github/workflows/*.yml` file must also pass
+`actionlint` (CI-enforced) — see
+[`CONTRIBUTING.md`](docs/CONTRIBUTING.md#editing-github-actions-workflow-files).
 
 ### Manual Instant Test (real SMS, right now)
 

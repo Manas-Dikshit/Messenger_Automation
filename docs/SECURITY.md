@@ -5,6 +5,7 @@
 | Asset | Sensitivity | Where it lives |
 |---|---|---|
 | SMS Gateway Cloud username/password | High - grants ability to send SMS from the teacher's phone | GitHub Actions **Secrets** only |
+| GitHub PAT (if using an external scheduler like cron-job.org) | High - grants ability to trigger workflow runs on this repo | Third-party scheduler's own secret storage - **never** in this repo |
 | Contact phone numbers (CSV) | Moderate - personal data | Committed to the repository (make the repo **private**) |
 | Sent-state file | Low | Committed to the repository |
 
@@ -91,6 +92,29 @@ accidental commit, a compromised collaborator account):
 4. Trigger a manual `workflow_dispatch` run with `dry_run: true` to
    confirm the new credentials authenticate successfully before
    relying on the next scheduled run.
+
+## 8a. External Scheduler Credential (cron-job.org or similar)
+
+If using an external scheduler to trigger `workflow_dispatch` on
+time (see [`DEPLOYMENT.md`](DEPLOYMENT.md#step-9b---recommended-external-scheduler-for-on-time-triggers)),
+that service holds a GitHub Personal Access Token capable of
+triggering (and cancelling) workflow runs on this repository.
+
+- **Scope it minimally**: fine-grained token, repository access
+  limited to *only this repo*, permissions limited to *only*
+  **Actions: Read and write**. Never use a classic PAT or a
+  broadly-scoped fine-grained token for this.
+- **Never paste this token into chat, screenshots, issues, or commit
+  messages.** If it's ever exposed this way, treat it as compromised
+  immediately - revoke and regenerate, don't wait.
+- **Rotate on the token's own expiration schedule** (fine-grained
+  tokens require an expiration date, e.g. 90 days) - update the value
+  in the scheduler's header configuration, not in this repository.
+- **Worst-case blast radius if leaked**: the holder can trigger or
+  cancel workflow runs on this repo (including sending real SMS via
+  `daily.yml`, or hitting the ping endpoint via `cron_ping.yml`).
+  They cannot read source code, modify files, or access other
+  secrets - the token's permission is scoped to Actions only.
 
 ## 9. Revoking Credentials
 
