@@ -40,3 +40,24 @@ jobs:
 
       - name: Call API
         run: python cron_ping/main.py
+
+      # ------------------------------------------------------------
+      # Dead-man's-switch monitoring (healthchecks.io). See the
+      # matching step in daily.yml for why this exists. Only pings
+      # on the permanent slot / manual runs, not the TEMP test slots.
+      # No-op if HEALTHCHECK_URL_CRONPING secret isn't set.
+      # ------------------------------------------------------------
+      - name: Ping healthcheck (real runs only)
+        if: >-
+          ${{ always() && secrets.HEALTHCHECK_URL_CRONPING != '' &&
+          github.event.schedule != '17 6 * * *' &&
+          github.event.schedule != '3 7 * * *' &&
+          github.event.schedule != '8 9 * * *' &&
+          github.event.schedule != '12 12 * * *' &&
+          github.event.schedule != '17 15 * * *' }}
+        run: |
+          url="${{ secrets.HEALTHCHECK_URL_CRONPING }}"
+          if [ "${{ job.status }}" != "success" ]; then
+            url="${url}/fail"
+          fi
+          curl -fsS -m 10 --retry 3 "$url" || echo "Healthcheck ping failed (non-fatal)."

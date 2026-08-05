@@ -203,3 +203,24 @@ jobs:
           else
             echo "No state changes to commit."
           fi
+
+      # ------------------------------------------------------------
+      # Dead-man's-switch monitoring (healthchecks.io).
+      #
+      # GitHub gives no visibility into whether a `schedule` trigger
+      # actually fired, or was delayed/dropped (see docs linked at
+      # the top of this file). Pinging an external monitor on every
+      # REAL run (not test slots) lets it alert us by email if a
+      # ping doesn't arrive within the configured schedule + grace
+      # period - the only way to catch a silently dropped trigger.
+      #
+      # No-op if HEALTHCHECK_URL_DAILY secret isn't set.
+      # ------------------------------------------------------------
+      - name: Ping healthcheck (real runs only)
+        if: ${{ always() && steps.testmode.outputs.is_test == 'false' && secrets.HEALTHCHECK_URL_DAILY != '' }}
+        run: |
+          url="${{ secrets.HEALTHCHECK_URL_DAILY }}"
+          if [ "${{ job.status }}" != "success" ]; then
+            url="${url}/fail"
+          fi
+          curl -fsS -m 10 --retry 3 "$url" || echo "Healthcheck ping failed (non-fatal)."
