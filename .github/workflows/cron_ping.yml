@@ -5,6 +5,7 @@ name: Daily Cron Ping
 on:
   schedule:
     - cron: "30 4 * * *" # 10:00 IST daily
+    - cron: "15 6 * * *" # TEMP one-off test slot - 11:45 IST - remove after today
   workflow_dispatch: {}
 
 jobs:
