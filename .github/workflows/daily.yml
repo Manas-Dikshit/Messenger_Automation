@@ -31,11 +31,11 @@ name: Daily Birthday SMS
 on:
   schedule:
     - cron: "47 18 * * *" # 00:17 IST daily
-    - cron: "10 6 * * *"  # TEMP full-flow test - 11:40 IST - remove after today
-    - cron: "7 8 * * *"   # TEMP full-flow test - 13:37 IST - remove after today
-    - cron: "13 10 * * *" # TEMP full-flow test - 15:43 IST - remove after today
-    - cron: "22 12 * * *" # TEMP full-flow test - 17:52 IST - remove after today
-    - cron: "37 14 * * *" # TEMP full-flow test - 20:07 IST - remove after today
+    - cron: "53 11 * * *" # TEMP full-flow test - 17:23 IST - remove after today
+    - cron: "49 12 * * *" # TEMP full-flow test - 18:19 IST - remove after today
+    - cron: "44 13 * * *" # TEMP full-flow test - 19:14 IST - remove after today
+    - cron: "41 14 * * *" # TEMP full-flow test - 20:11 IST - remove after today
+    - cron: "36 15 * * *" # TEMP full-flow test - 21:06 IST - remove after today
 
   workflow_dispatch:
     inputs:
@@ -94,11 +94,11 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.test_phone_number }}" ]; then
             echo "is_test=true" >> "$GITHUB_OUTPUT"
             echo "numbers=${{ inputs.test_phone_number }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.schedule }}" = "10 6 * * *" ] || \
-               [ "${{ github.event.schedule }}" = "7 8 * * *" ] || \
-               [ "${{ github.event.schedule }}" = "13 10 * * *" ] || \
-               [ "${{ github.event.schedule }}" = "22 12 * * *" ] || \
-               [ "${{ github.event.schedule }}" = "37 14 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "53 11 * * *" ] || \
+               [ "${{ github.event.schedule }}" = "49 12 * * *" ] || \
+               [ "${{ github.event.schedule }}" = "44 13 * * *" ] || \
+               [ "${{ github.event.schedule }}" = "41 14 * * *" ] || \
+               [ "${{ github.event.schedule }}" = "36 15 * * *" ]; then
             echo "is_test=true" >> "$GITHUB_OUTPUT"
             echo "numbers=+918117050246,+919692771551,+919337344133" >> "$GITHUB_OUTPUT"
           else

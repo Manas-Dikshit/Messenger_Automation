@@ -11,11 +11,11 @@ name: Daily Cron Ping
 on:
   schedule:
     - cron: "47 4 * * *" # 10:17 IST daily
-    - cron: "17 6 * * *"  # TEMP test slot - 11:47 IST - remove after today
-    - cron: "3 7 * * *"   # TEMP test slot - 12:33 IST - remove after today
-    - cron: "8 9 * * *"   # TEMP test slot - 14:38 IST - remove after today
-    - cron: "12 12 * * *" # TEMP test slot - 17:42 IST - remove after today
-    - cron: "17 15 * * *" # TEMP test slot - 20:47 IST - remove after today
+    - cron: "1 12 * * *"  # TEMP test slot - 17:31 IST - remove after today
+    - cron: "57 12 * * *" # TEMP test slot - 18:27 IST - remove after today
+    - cron: "52 13 * * *" # TEMP test slot - 19:22 IST - remove after today
+    - cron: "48 14 * * *" # TEMP test slot - 20:18 IST - remove after today
+    - cron: "43 15 * * *" # TEMP test slot - 21:13 IST - remove after today
   workflow_dispatch: {}
 
 jobs:
@@ -38,11 +38,11 @@ jobs:
       - name: Ping healthcheck - start
         if: >-
           ${{ secrets.HEALTHCHECK_URL_CRONPING != '' &&
-          github.event.schedule != '17 6 * * *' &&
-          github.event.schedule != '3 7 * * *' &&
-          github.event.schedule != '8 9 * * *' &&
-          github.event.schedule != '12 12 * * *' &&
-          github.event.schedule != '17 15 * * *' }}
+          github.event.schedule != '1 12 * * *' &&
+          github.event.schedule != '57 12 * * *' &&
+          github.event.schedule != '52 13 * * *' &&
+          github.event.schedule != '48 14 * * *' &&
+          github.event.schedule != '43 15 * * *' }}
         run: |
           curl -fsS -m 10 --retry 3 "${{ secrets.HEALTHCHECK_URL_CRONPING }}/start" \
             || echo "Healthcheck start ping failed (non-fatal)."
@@ -69,11 +69,11 @@ jobs:
       - name: Ping healthcheck - end (real runs only)
         if: >-
           ${{ always() && secrets.HEALTHCHECK_URL_CRONPING != '' &&
-          github.event.schedule != '17 6 * * *' &&
-          github.event.schedule != '3 7 * * *' &&
-          github.event.schedule != '8 9 * * *' &&
-          github.event.schedule != '12 12 * * *' &&
-          github.event.schedule != '17 15 * * *' }}
+          github.event.schedule != '1 12 * * *' &&
+          github.event.schedule != '57 12 * * *' &&
+          github.event.schedule != '52 13 * * *' &&
+          github.event.schedule != '48 14 * * *' &&
+          github.event.schedule != '43 15 * * *' }}
         run: |
           url="${{ secrets.HEALTHCHECK_URL_CRONPING }}"
           if [ "${{ job.status }}" != "success" ]; then
