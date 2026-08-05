@@ -84,6 +84,16 @@ automatically after 60 days of repository inactivity** (no commits).
 Push any commit, or manually trigger the workflow once, to reactivate
 scheduled runs.
 
+This is handled automatically by
+[`.github/workflows/keepalive.yml`](../.github/workflows/keepalive.yml),
+which commits a small heartbeat timestamp
+(`.github/.keepalive`) on the 1st and 15th of every month - well
+inside the 60-day window - so `daily.yml` and `cron_ping.yml` never
+go quiet even if there are no birthdays or manual pushes for a long
+stretch. If schedules still appear disabled, check that this workflow
+itself is running (Actions → Repo Keepalive) and actually producing
+commits.
+
 ## `curl` test from `SMS_GATEWAY_SETUP.md` works, but GitHub Actions doesn't
 
 This almost always means the secret values in GitHub don't exactly

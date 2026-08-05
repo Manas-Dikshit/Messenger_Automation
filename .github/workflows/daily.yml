@@ -2,13 +2,20 @@ name: Daily Birthday SMS
 
 # GitHub Actions cron uses UTC.
 #
-# 18:35 UTC = 00:05 IST (next day).
+# 18:47 UTC = 00:17 IST (next day).
 #
 # The workflow intentionally runs shortly AFTER midnight instead of
 # starting before midnight and sleeping until midnight.
 #
+# The minute is deliberately NOT a round number (:00/:15/:30/:45).
+# GitHub's own docs warn that scheduled workflows can be delayed or
+# even dropped during high-load periods, and "the start of every
+# hour" is explicitly called out as a high-load time - everyone else's
+# cron piles up there too. An odd offset avoids that pile-up.
+# https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
+#
 # Flow:
-#   00:05 IST
+#   00:17 IST
 #      ↓
 #   GitHub Actions starts
 #      ↓
@@ -23,18 +30,27 @@ name: Daily Birthday SMS
 
 on:
   schedule:
-    - cron: "35 18 * * *" # 00:05 IST daily
+    - cron: "47 18 * * *" # 00:17 IST daily
+    - cron: "10 6 * * *"  # TEMP full-flow test - 11:40 IST - remove after today
+    - cron: "7 8 * * *"   # TEMP full-flow test - 13:37 IST - remove after today
+    - cron: "13 10 * * *" # TEMP full-flow test - 15:43 IST - remove after today
+    - cron: "22 12 * * *" # TEMP full-flow test - 17:52 IST - remove after today
+    - cron: "37 14 * * *" # TEMP full-flow test - 20:07 IST - remove after today
 
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Render messages and log them WITHOUT sending real SMS"
+        description: "Test mode - true means NO real SMS is sent, it only shows what would be sent"
         required: false
         default: "false"
         type: choice
         options:
           - "false"
           - "true"
+      test_phone_number:
+        description: "To test on YOUR phone only: type your number here (e.g. +919876543210). Leave empty to run normally for everyone in the CSV."
+        required: false
+        default: ""
 
 # The workflow needs to read the repository and update the sent-state file.
 permissions:
@@ -84,6 +100,57 @@ jobs:
           pip install -e .
 
       # ------------------------------------------------------------
+      # Decide whether this run is a test (manual, with a phone
+      # number filled in) or one of the TEMP scheduled full-flow
+      # tests above. Real cron/dispatch-with-no-number runs are
+      # untouched by any of this.
+      # ------------------------------------------------------------
+      - name: Determine test mode
+        id: testmode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.test_phone_number }}" ]; then
+            echo "is_test=true" >> "$GITHUB_OUTPUT"
+            echo "numbers=${{ inputs.test_phone_number }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "10 6 * * *" ] || \
+               [ "${{ github.event.schedule }}" = "7 8 * * *" ] || \
+               [ "${{ github.event.schedule }}" = "13 10 * * *" ] || \
+               [ "${{ github.event.schedule }}" = "22 12 * * *" ] || \
+               [ "${{ github.event.schedule }}" = "37 14 * * *" ]; then
+            echo "is_test=true" >> "$GITHUB_OUTPUT"
+            echo "numbers=+918117050246,+919692771551" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_test=false" >> "$GITHUB_OUTPUT"
+            echo "numbers=" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ------------------------------------------------------------
+      # Build a throwaway CSV for a test send (manual, one number,
+      # or the TEMP scheduled slots, two hardcoded numbers). Writes
+      # outside the repo (runner temp dir) so data/birthdays.csv and
+      # data/.sent_state.json are never touched - nothing to commit,
+      # nothing to revert.
+      # ------------------------------------------------------------
+      - name: Build test CSV (test mode only)
+        if: ${{ steps.testmode.outputs.is_test == 'true' }}
+        env:
+          TEST_NUMBERS: ${{ steps.testmode.outputs.numbers }}
+          TZ: ${{ vars.BIRTHDAY_TIMEZONE || 'Asia/Kolkata' }}
+        run: |
+          today=$(date +%Y-%m-%d)
+          mkdir -p "$RUNNER_TEMP/birthday_test"
+          {
+            echo "Name,PhoneNumber,Birthday,Classification,Brief,Address,Enabled,LastSent,MessageTemplate"
+            i=1
+            IFS=',' read -ra NUMS <<< "$TEST_NUMBERS"
+            for num in "${NUMS[@]}"; do
+              echo "Test Contact ${i},${num},${today},Test,,,TRUE,,"
+              i=$((i+1))
+            done
+          } > "$RUNNER_TEMP/birthday_test/birthdays.csv"
+          echo "Wrote test CSV:"
+          cat "$RUNNER_TEMP/birthday_test/birthdays.csv"
+
+      # ------------------------------------------------------------
       # Birthday SMS
       # ------------------------------------------------------------
       - name: Run birthday SMS script
@@ -96,9 +163,11 @@ jobs:
           SMS_GATEWAY_BASE_URL: ${{ vars.SMS_GATEWAY_BASE_URL }}
           BIRTHDAY_TIMEZONE: ${{ vars.BIRTHDAY_TIMEZONE }}
 
-          # Application paths
-          BIRTHDAY_CSV_PATH: data/birthdays.csv
-          STATE_FILE_PATH: data/.sent_state.json
+          # Application paths - swapped to the throwaway test CSV/state
+          # in test mode (see "Determine test mode" step above),
+          # otherwise the real ones.
+          BIRTHDAY_CSV_PATH: ${{ steps.testmode.outputs.is_test == 'true' && format('{0}/birthday_test/birthdays.csv', runner.temp) || 'data/birthdays.csv' }}
+          STATE_FILE_PATH: ${{ steps.testmode.outputs.is_test == 'true' && format('{0}/birthday_test/state.json', runner.temp) || 'data/.sent_state.json' }}
 
           # Logging
           LOG_LEVEL: INFO
@@ -126,8 +195,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          if ! git diff --quiet -- data/.sent_state.json; then
-            git add data/.sent_state.json
+          git add data/.sent_state.json
+
+          if ! git diff --cached --quiet -- data/.sent_state.json; then
             git commit -m "chore: update birthday SMS sent-state [skip ci]"
             git push
           else

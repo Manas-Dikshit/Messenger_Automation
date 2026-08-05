@@ -1,0 +1,45 @@
+name: Repo Keepalive
+
+# GitHub disables scheduled workflows after 60 days with no commits
+# to the repo. This workflow commits a small timestamp file every
+# 30 days (well inside that window) so daily.yml and cron_ping.yml
+# never silently stop firing, with zero manual action required.
+
+on:
+  schedule:
+    - cron: "0 0 1,15 * *" # 1st and 15th of every month, 00:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    name: Commit heartbeat
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Update heartbeat file
+        run: |
+          mkdir -p .github
+          date -u "+%Y-%m-%dT%H:%M:%SZ" > .github/.keepalive
+
+      - name: Commit heartbeat
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add .github/.keepalive
+
+          if ! git diff --cached --quiet -- .github/.keepalive; then
+            git commit -m "chore: keepalive heartbeat [skip ci]"
+            git push
+          else
+            echo "No change - skipping commit."
+          fi

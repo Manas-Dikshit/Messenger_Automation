@@ -207,7 +207,7 @@ See the full annotated tree in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#8-f
 
 ```
 birthday-sms-automation/
-├── .github/workflows/   # daily.yml (scheduler) + lint.yml (CI)
+├── .github/workflows/   # daily.yml (scheduler), keepalive.yml (anti-60-day-disable), lint.yml (CI)
 ├── data/                # birthdays.csv + auto-managed sent-state
 ├── docs/                # architecture, security, setup, deployment, FAQ
 ├── src/birthday_sms/    # application source
