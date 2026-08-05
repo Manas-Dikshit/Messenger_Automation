@@ -1,10 +1,10 @@
 name: Daily Cron Ping
 
 # GitHub Actions cron uses UTC.
-# 21:00 IST = 15:30 UTC. Adjust if a different timezone is intended.
+# 10:00 IST = 04:30 UTC. Adjust if a different timezone is intended.
 on:
   schedule:
-    - cron: "30 15 * * *" # 21:00 IST daily
+    - cron: "30 4 * * *" # 10:00 IST daily
   workflow_dispatch: {}
 
 jobs:
@@ -28,8 +28,4 @@ jobs:
         run: pip install requests
 
       - name: Call API
-        env:
-          API_URL: ${{ secrets.CRON_API_URL }}
-          API_KEY: ${{ secrets.CRON_API_KEY }}
-          API_METHOD: ${{ vars.CRON_API_METHOD }}
         run: python cron_ping/main.py
