@@ -72,6 +72,14 @@ jobs:
     # for a worst case of many same-day birthdays all needing retries.
     timeout-minutes: 25
 
+    # `secrets.*` isn't a valid context inside step `if:` conditions
+    # (GitHub Actions schema restriction, not caught by generic YAML
+    # validation - only actionlint or GitHub's own parser catch it).
+    # Exposing it as a job-level env var makes it usable via `env.*`
+    # in any step's `if:` below.
+    env:
+      HEALTHCHECK_URL_DAILY: ${{ secrets.HEALTHCHECK_URL_DAILY }}
+
     steps:
       # ------------------------------------------------------------
       # Checkout repository
@@ -115,9 +123,9 @@ jobs:
       # dangling "started but never finished" state on the monitor.
       # ------------------------------------------------------------
       - name: Ping healthcheck - start
-        if: ${{ steps.testmode.outputs.is_test == 'false' && secrets.HEALTHCHECK_URL_DAILY != '' }}
+        if: ${{ steps.testmode.outputs.is_test == 'false' && env.HEALTHCHECK_URL_DAILY != '' }}
         run: |
-          curl -fsS -m 10 --retry 3 "${{ secrets.HEALTHCHECK_URL_DAILY }}/start" \
+          curl -fsS -m 10 --retry 3 "$HEALTHCHECK_URL_DAILY/start" \
             || echo "Healthcheck start ping failed (non-fatal)."
 
       # ------------------------------------------------------------
@@ -246,9 +254,9 @@ jobs:
       # No-op if HEALTHCHECK_URL_DAILY secret isn't set.
       # ------------------------------------------------------------
       - name: Ping healthcheck - end (real runs only)
-        if: ${{ always() && steps.testmode.outputs.is_test == 'false' && secrets.HEALTHCHECK_URL_DAILY != '' }}
+        if: ${{ always() && steps.testmode.outputs.is_test == 'false' && env.HEALTHCHECK_URL_DAILY != '' }}
         run: |
-          url="${{ secrets.HEALTHCHECK_URL_DAILY }}"
+          url="$HEALTHCHECK_URL_DAILY"
           if [ "${{ job.status }}" != "success" ]; then
             url="${url}/fail"
           fi

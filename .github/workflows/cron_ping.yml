@@ -24,6 +24,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
+    # `secrets.*` isn't a valid context inside step `if:` conditions
+    # (GitHub Actions schema restriction). Exposing it as a job-level
+    # env var makes it usable via `env.*` in any step's `if:` below.
+    env:
+      HEALTHCHECK_URL_CRONPING: ${{ secrets.HEALTHCHECK_URL_CRONPING }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -37,14 +43,14 @@ jobs:
       # ------------------------------------------------------------
       - name: Ping healthcheck - start
         if: >-
-          ${{ secrets.HEALTHCHECK_URL_CRONPING != '' &&
+          ${{ env.HEALTHCHECK_URL_CRONPING != '' &&
           github.event.schedule != '1 12 * * *' &&
           github.event.schedule != '57 12 * * *' &&
           github.event.schedule != '52 13 * * *' &&
           github.event.schedule != '48 14 * * *' &&
           github.event.schedule != '43 15 * * *' }}
         run: |
-          curl -fsS -m 10 --retry 3 "${{ secrets.HEALTHCHECK_URL_CRONPING }}/start" \
+          curl -fsS -m 10 --retry 3 "$HEALTHCHECK_URL_CRONPING/start" \
             || echo "Healthcheck start ping failed (non-fatal)."
 
       - name: Set up Python 3.12
@@ -68,14 +74,14 @@ jobs:
       # ------------------------------------------------------------
       - name: Ping healthcheck - end (real runs only)
         if: >-
-          ${{ always() && secrets.HEALTHCHECK_URL_CRONPING != '' &&
+          ${{ always() && env.HEALTHCHECK_URL_CRONPING != '' &&
           github.event.schedule != '1 12 * * *' &&
           github.event.schedule != '57 12 * * *' &&
           github.event.schedule != '52 13 * * *' &&
           github.event.schedule != '48 14 * * *' &&
           github.event.schedule != '43 15 * * *' }}
         run: |
-          url="${{ secrets.HEALTHCHECK_URL_CRONPING }}"
+          url="$HEALTHCHECK_URL_CRONPING"
           if [ "${{ job.status }}" != "success" ]; then
             url="${url}/fail"
           fi
