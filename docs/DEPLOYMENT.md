@@ -113,6 +113,12 @@ birthday is about to begin, and - if so - waits until exactly
 all without the PC or the repository owner doing anything. On nights
 with no birthdays, the run exits within seconds instead of waiting.
 
+A separate `.github/workflows/keepalive.yml` runs twice a month and
+commits a small heartbeat file for one reason only: GitHub disables
+scheduled workflows after 60 days without a commit to the repo, and
+this guarantees that never happens even during long stretches with no
+birthdays. No action needed - it's fully automatic.
+
 After sending, the run polls the gateway for delivery confirmation
 (up to 10 minutes) and writes a Markdown report — status counts,
 per-contact delivery outcome, and any unconfirmed messages — to the

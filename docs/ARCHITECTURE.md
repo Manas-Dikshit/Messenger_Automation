@@ -182,6 +182,8 @@ birthday-sms-automation/
 ├── .github/
 │   └── workflows/
 │       ├── daily.yml          # Scheduled birthday check + send
+│       ├── cron_ping.yml      # Scheduled test API ping
+│       ├── keepalive.yml      # Bi-monthly commit - prevents 60-day cron disable
 │       └── lint.yml           # Lint + unit tests on push/PR
 ├── data/
 │   ├── birthdays.csv          # Contact list (edit this!)
@@ -296,6 +298,11 @@ this:
   trigger itself was delayed - only extreme delays (the trigger firing
   *after* midnight) would cause the run to fall back to sending
   immediately rather than waiting.
+- **GitHub disables scheduled workflows after 60 days with no commits
+  to the repository.** Mitigated by `.github/workflows/keepalive.yml`,
+  which commits a heartbeat file twice a month purely to keep the
+  repo "active" from GitHub's point of view - see
+  [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md#workflow-didnt-run-at-the-scheduled-time-at-all).
 - **SMS costs are whatever the teacher's own carrier plan charges**
   for sending a text - this project does not eliminate carrier SMS
   costs, only third-party API costs.

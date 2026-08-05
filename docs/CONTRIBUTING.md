@@ -39,6 +39,27 @@ flake8 src tests
 3. Ensure `black`, `isort`, `flake8`, and `pytest` all pass locally.
 4. Open a pull request describing the change and why it's needed.
 
+## Writing GitHub Actions Steps That Auto-Commit
+
+If a workflow step commits a file back to the repo (as `daily.yml`
+and `keepalive.yml` do), always `git add` the file **before** checking
+whether anything changed, and check the staged diff:
+
+```bash
+git add path/to/file
+if ! git diff --cached --quiet -- path/to/file; then
+  git commit -m "..."
+  git push
+fi
+```
+
+Checking `git diff --quiet` (without `--cached`, before `git add`)
+only compares already-**tracked** files - a brand-new, never-before-
+committed file is invisible to it, so the very first run silently
+skips the commit every single time. This exact bug shipped in an
+earlier version of `keepalive.yml` and was only caught by manually
+testing the workflow and finding no commit ever landed.
+
 ## Reporting Bugs
 
 Open a GitHub Issue with:
