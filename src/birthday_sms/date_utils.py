@@ -53,6 +53,19 @@ def parse_date(raw_value: str, row_number: int = 0) -> date:
     )
 
 
+def now_in_timezone(timezone_name: str) -> datetime:
+    """Return the current timezone-aware datetime in the given IANA timezone."""
+    tz = _resolve_zoneinfo(timezone_name)
+    return datetime.now(tz)
+
+
+def format_timestamp(dt: datetime | None) -> str:
+    """Render a timestamp for display, e.g. '2026-08-05 14:30:00 IST'."""
+    if dt is None:
+        return "-"
+    return dt.strftime("%Y-%m-%d %H:%M:%S %Z")
+
+
 def today_in_timezone(timezone_name: str) -> date:
     """Return today's calendar date in the given IANA timezone.
 

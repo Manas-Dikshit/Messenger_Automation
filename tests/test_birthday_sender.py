@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from unittest.mock import MagicMock
 
 from birthday_sms.birthday_sender import BirthdaySender
@@ -177,3 +177,78 @@ class TestBirthdaySender:
 
         assert results[0].status == SendStatus.FAILED
         assert results[0].error is not None
+
+
+class TestSendResultTimestamps:
+    def test_sent_result_has_sent_at_and_retry_attempts(self, tmp_path):
+        today = date(2026, 7, 25)
+        contact = make_contact(birthday=date(2000, 7, 25))
+        gateway = MagicMock()
+        gateway.send_sms.return_value = SendSmsResponse(
+            message_id="abc", state="Pending", raw={}, attempts=2
+        )
+
+        sender = BirthdaySender(
+            config=make_config(tmp_path / "c.csv", tmp_path / "state.json"),
+            repository=FakeRepository([contact]),
+            gateway_client=gateway,
+            message_builder=MessageBuilder(),
+            state_store=SentStateStore(tmp_path / "state.json"),
+            now=lambda: datetime(2026, 7, 25, 0, 17, 0),
+        )
+
+        results = sender.run(today)
+
+        assert results[0].sent_at == "2026-07-25 00:17:00"
+        assert results[0].retry_attempts == 2
+
+    def test_failed_result_has_sent_at(self, tmp_path):
+        today = date(2026, 7, 25)
+        contact = make_contact(birthday=date(2000, 7, 25))
+        gateway = MagicMock()
+        gateway.send_sms.side_effect = RetryExhaustedError(3, None)
+
+        sender = BirthdaySender(
+            config=make_config(tmp_path / "c.csv", tmp_path / "state.json"),
+            repository=FakeRepository([contact]),
+            gateway_client=gateway,
+            message_builder=MessageBuilder(),
+            state_store=SentStateStore(tmp_path / "state.json"),
+            now=lambda: datetime(2026, 7, 25, 0, 17, 0),
+        )
+
+        results = sender.run(today)
+
+        assert results[0].sent_at == "2026-07-25 00:17:00"
+
+    def test_delivered_result_has_delivered_at(self, tmp_path):
+        today = date(2026, 7, 25)
+        contact = make_contact(birthday=date(2000, 7, 25))
+        gateway = MagicMock()
+        gateway.send_sms.return_value = SendSmsResponse(
+            message_id="abc", state="Pending", raw={}, attempts=1
+        )
+        tracker = MagicMock()
+        tracker.track.return_value = {"abc": "Delivered"}
+
+        times = iter(
+            [
+                datetime(2026, 7, 25, 0, 17, 0),
+                datetime(2026, 7, 25, 0, 18, 30),
+            ]
+        )
+
+        sender = BirthdaySender(
+            config=make_config(tmp_path / "c.csv", tmp_path / "state.json"),
+            repository=FakeRepository([contact]),
+            gateway_client=gateway,
+            message_builder=MessageBuilder(),
+            state_store=SentStateStore(tmp_path / "state.json"),
+            delivery_tracker=tracker,
+            now=lambda: next(times),
+        )
+
+        results = sender.run(today)
+
+        assert results[0].sent_at == "2026-07-25 00:17:00"
+        assert results[0].delivered_at == "2026-07-25 00:18:30"

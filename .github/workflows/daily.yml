@@ -183,6 +183,12 @@ jobs:
           # Manual dry-run option
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
 
+          # GITHUB_EVENT_NAME/GITHUB_SERVER_URL/GITHUB_REPOSITORY/GITHUB_RUN_ID
+          # are set automatically by Actions. The cron string that
+          # actually fired is NOT auto-exposed, so pass it explicitly -
+          # shown in the run summary to help diagnose scheduling delays.
+          GITHUB_EVENT_SCHEDULE: ${{ github.event.schedule }}
+
         run: |
           python -m birthday_sms.main
 

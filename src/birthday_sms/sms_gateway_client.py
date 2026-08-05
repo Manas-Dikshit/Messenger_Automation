@@ -43,6 +43,7 @@ class SendSmsResponse:
     message_id: str
     state: str
     raw: dict
+    attempts: int = 1
 
 
 class SmsGatewayClient:
@@ -127,7 +128,7 @@ class SmsGatewayClient:
                     )
 
                 if response.status_code // 100 == 2:
-                    return self._parse_success(response)
+                    return self._parse_success(response, attempts=attempt)
 
                 if response.status_code in RETRYABLE_STATUS_CODES:
                     last_error = SmsGatewayUnavailableError(
@@ -210,7 +211,7 @@ class SmsGatewayClient:
         time.sleep(total_delay)
 
     @staticmethod
-    def _parse_success(response: requests.Response) -> SendSmsResponse:
+    def _parse_success(response: requests.Response, attempts: int = 1) -> SendSmsResponse:
         try:
             data = response.json()
         except ValueError as exc:
@@ -228,4 +229,5 @@ class SmsGatewayClient:
             message_id=message_id,
             state=state,
             raw=data,
+            attempts=attempts,
         )

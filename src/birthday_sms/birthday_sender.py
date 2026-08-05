@@ -4,11 +4,13 @@ render messages, send via the gateway, and record results."""
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, datetime
+from typing import Callable
 
 from birthday_sms.config import AppConfig
 from birthday_sms.constants import DELIVERY_TERMINAL_STATES
 from birthday_sms.csv_reader import CsvContactRepository
+from birthday_sms.date_utils import now_in_timezone
 from birthday_sms.delivery_tracker import DeliveryTracker
 from birthday_sms.exceptions import RetryExhaustedError, SmsGatewayError
 from birthday_sms.message_builder import MessageBuilder
@@ -30,6 +32,7 @@ class BirthdaySender:
         message_builder: MessageBuilder,
         state_store: SentStateStore,
         delivery_tracker: DeliveryTracker | None = None,
+        now: Callable[[], datetime] | None = None,
     ) -> None:
         self._config = config
         self._repository = repository
@@ -37,6 +40,7 @@ class BirthdaySender:
         self._message_builder = message_builder
         self._state_store = state_store
         self._delivery_tracker = delivery_tracker
+        self._now = now or (lambda: now_in_timezone(config.timezone))
         #: message id -> last known gateway state from this run's polling.
         self.delivery_states: dict[str, str] = {}
 
@@ -92,6 +96,7 @@ class BirthdaySender:
                 status=SendStatus.FAILED,
                 error=str(exc),
                 rendered_message=rendered_message,
+                sent_at=self._format_now(),
             )
 
         self._state_store.mark_sent(contact.phone_number, today.year)
@@ -107,7 +112,12 @@ class BirthdaySender:
             status=SendStatus.SENT,
             message_id=response.message_id,
             rendered_message=rendered_message,
+            sent_at=self._format_now(),
+            retry_attempts=response.attempts,
         )
+
+    def _format_now(self) -> str:
+        return self._now().strftime("%Y-%m-%d %H:%M:%S")
 
     def _recheck_previous_unconfirmed(self) -> None:
         """One-shot state check for messages left unconfirmed by earlier runs
@@ -153,6 +163,7 @@ class BirthdaySender:
         for message_id, state in states.items():
             result = by_id[message_id]
             if state == "Delivered":
+                result.delivered_at = self._format_now()
                 logger.info("Delivery confirmed for %s (%s).", result.contact.name, message_id)
             elif state == "Failed":
                 logger.error(

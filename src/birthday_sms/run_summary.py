@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import os
 
-from birthday_sms.models import SendResult, SendStatus
+from birthday_sms.models import RunMetadata, SendResult, SendStatus
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +21,23 @@ def build_summary_markdown(
     results: list[SendResult],
     delivery_states: dict[str, str],
     unconfirmed: dict[str, dict],
+    run_metadata: RunMetadata | None = None,
 ) -> str:
     """Render the run report as GitHub-flavored Markdown."""
     lines: list[str] = ["# Birthday SMS Run Summary", ""]
+
+    if run_metadata is not None:
+        lines += ["## Run info", ""]
+        lines += ["| Field | Value |", "| --- | --- |"]
+        lines.append(f"| Trigger | {run_metadata.trigger_event} |")
+        if run_metadata.trigger_schedule:
+            lines.append(f"| Cron | `{run_metadata.trigger_schedule}` |")
+        lines.append(f"| Dry run | {run_metadata.dry_run} |")
+        lines.append(f"| Started | {run_metadata.started_at or '-'} |")
+        lines.append(f"| Completed | {run_metadata.completed_at or '-'} |")
+        if run_metadata.run_url:
+            lines.append(f"| Run log | {run_metadata.run_url} |")
+        lines.append("")
 
     counts: dict[SendStatus, int] = {}
     for result in results:
@@ -43,14 +57,17 @@ def build_summary_markdown(
     lines += ["## Today's birthdays", ""]
     if attempted:
         lines += [
-            "| Contact | Phone | Send status | Delivery |",
-            "| --- | --- | --- | --- |",
+            "| Contact | Phone | Send status | Sent at | Delivery | "
+            "Delivered at | Retries | Message ID | Error |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
         for result in attempted:
             delivery = delivery_states.get(result.message_id or "", "-")
             lines.append(
                 f"| {result.contact.name} | {result.contact.phone_number} "
-                f"| {result.status.value} | {delivery} |"
+                f"| {result.status.value} | {result.sent_at or '-'} | {delivery} "
+                f"| {result.delivered_at or '-'} | {result.retry_attempts or '-'} "
+                f"| {result.message_id or '-'} | {result.error or '-'} |"
             )
     else:
         lines.append("No birthdays today.")

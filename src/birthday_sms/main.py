@@ -10,22 +10,32 @@ Exit codes:
 from __future__ import annotations
 
 import logging
+import os
 import sys
 
 from birthday_sms.birthday_sender import BirthdaySender
 from birthday_sms.config import AppConfig
 from birthday_sms.csv_reader import CsvContactRepository
-from birthday_sms.date_utils import today_in_timezone
+from birthday_sms.date_utils import format_timestamp, now_in_timezone, today_in_timezone
 from birthday_sms.delivery_tracker import DeliveryTracker
 from birthday_sms.exceptions import ConfigurationError, CsvError
 from birthday_sms.logger import configure_logging
 from birthday_sms.message_builder import MessageBuilder
-from birthday_sms.models import SendStatus
+from birthday_sms.models import RunMetadata, SendStatus
 from birthday_sms.run_summary import build_summary_markdown, write_github_step_summary
 from birthday_sms.sms_gateway_client import SmsGatewayClient
 from birthday_sms.state_store import SentStateStore
 
 logger = logging.getLogger(__name__)
+
+
+def _build_run_url() -> str | None:
+    server = os.environ.get("GITHUB_SERVER_URL")
+    repo = os.environ.get("GITHUB_REPOSITORY")
+    run_id = os.environ.get("GITHUB_RUN_ID")
+    if server and repo and run_id:
+        return f"{server}/{repo}/actions/runs/{run_id}"
+    return None
 
 
 def main() -> int:
@@ -58,6 +68,14 @@ def main() -> int:
         config.timezone,
     )
 
+    run_metadata = RunMetadata(
+        trigger_event=os.environ.get("GITHUB_EVENT_NAME", "unknown"),
+        trigger_schedule=os.environ.get("GITHUB_EVENT_SCHEDULE") or None,
+        dry_run=config.dry_run,
+        started_at=format_timestamp(now_in_timezone(config.timezone)),
+        run_url=_build_run_url(),
+    )
+
     repository = CsvContactRepository(config.csv_path)
     gateway_client = SmsGatewayClient(config.gateway)
     message_builder = MessageBuilder()
@@ -86,12 +104,15 @@ def main() -> int:
         logger.error("CSV error - aborting run: %s", exc)
         return 1
 
+    run_metadata.completed_at = format_timestamp(now_in_timezone(config.timezone))
+
     # Visible report on the GitHub Actions run page (no-op locally).
     write_github_step_summary(
         build_summary_markdown(
             results,
             delivery_states=sender.delivery_states,
             unconfirmed=state_store.unconfirmed(),
+            run_metadata=run_metadata,
         )
     )
 

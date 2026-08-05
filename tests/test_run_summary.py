@@ -68,3 +68,62 @@ class TestWriteGithubStepSummary:
         monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
 
         write_github_step_summary("# Hello")  # must not raise
+
+
+class TestBuildSummaryMarkdownDetailed:
+    def test_shows_message_id_sent_at_delivered_at_retries(self):
+        results = [
+            SendResult(
+                contact=make_contact(),
+                status=SendStatus.SENT,
+                message_id="m1",
+                sent_at="2026-08-05 00:17:00",
+                delivered_at="2026-08-05 00:18:30",
+                retry_attempts=2,
+            ),
+        ]
+
+        md = build_summary_markdown(results, delivery_states={"m1": "Delivered"}, unconfirmed={})
+
+        assert "m1" in md
+        assert "2026-08-05 00:17:00" in md
+        assert "2026-08-05 00:18:30" in md
+        assert "2" in md  # retry count
+
+    def test_shows_error_for_failed_contact(self):
+        results = [
+            SendResult(
+                contact=make_contact(),
+                status=SendStatus.FAILED,
+                error="Gateway unavailable after 4 attempts",
+                sent_at="2026-08-05 00:17:00",
+            ),
+        ]
+
+        md = build_summary_markdown(results, delivery_states={}, unconfirmed={})
+
+        assert "Gateway unavailable after 4 attempts" in md
+
+    def test_run_metadata_header_included(self):
+        from birthday_sms.models import RunMetadata
+
+        metadata = RunMetadata(
+            trigger_event="schedule",
+            trigger_schedule="47 18 * * *",
+            dry_run=False,
+            started_at="2026-08-05 00:17:01",
+            completed_at="2026-08-05 00:18:45",
+            run_url="https://github.com/org/repo/actions/runs/123",
+        )
+
+        md = build_summary_markdown([], delivery_states={}, unconfirmed={}, run_metadata=metadata)
+
+        assert "schedule" in md
+        assert "47 18 * * *" in md
+        assert "2026-08-05 00:17:01" in md
+        assert "2026-08-05 00:18:45" in md
+        assert "https://github.com/org/repo/actions/runs/123" in md
+
+    def test_no_metadata_still_works(self):
+        md = build_summary_markdown([], delivery_states={}, unconfirmed={})
+        assert "Birthday SMS Run Summary" in md

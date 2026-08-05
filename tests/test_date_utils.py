@@ -79,3 +79,36 @@ class TestTodayInTimezoneWithFrozenClock:
         )
 
         assert today_in_timezone("Asia/Kolkata") == date(2026, 7, 26)
+
+
+class TestNowInTimezone:
+    def test_returns_timezone_aware_datetime(self):
+        from birthday_sms.date_utils import now_in_timezone
+
+        result = now_in_timezone("Asia/Kolkata")
+
+        assert result.tzinfo is not None
+
+    def test_raises_on_unknown_timezone(self):
+        from birthday_sms.date_utils import now_in_timezone
+
+        with pytest.raises(ValueError):
+            now_in_timezone("Not/A_Real_Zone")
+
+
+class TestFormatTimestamp:
+    def test_formats_with_timezone_abbreviation(self):
+        from zoneinfo import ZoneInfo
+
+        from birthday_sms.date_utils import format_timestamp
+
+        dt = datetime(2026, 8, 5, 14, 30, 0, tzinfo=ZoneInfo("Asia/Kolkata"))
+
+        result = format_timestamp(dt)
+
+        assert result == "2026-08-05 14:30:00 IST"
+
+    def test_none_returns_dash(self):
+        from birthday_sms.date_utils import format_timestamp
+
+        assert format_timestamp(None) == "-"
