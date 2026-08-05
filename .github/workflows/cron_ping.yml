@@ -11,11 +11,11 @@ name: Daily Cron Ping
 on:
   schedule:
     - cron: "47 4 * * *" # 10:17 IST daily
-    - cron: "15 6 * * *" # TEMP test slot - 11:45 IST - remove after today
-    - cron: "0 7 * * *"  # TEMP test slot - 12:30 IST - remove after today
-    - cron: "0 9 * * *"  # TEMP test slot - 14:30 IST - remove after today
-    - cron: "0 12 * * *" # TEMP test slot - 17:30 IST - remove after today
-    - cron: "0 15 * * *" # TEMP test slot - 20:30 IST - remove after today
+    - cron: "17 6 * * *"  # TEMP test slot - 11:47 IST - remove after today
+    - cron: "3 7 * * *"   # TEMP test slot - 12:33 IST - remove after today
+    - cron: "8 9 * * *"   # TEMP test slot - 14:38 IST - remove after today
+    - cron: "12 12 * * *" # TEMP test slot - 17:42 IST - remove after today
+    - cron: "17 15 * * *" # TEMP test slot - 20:47 IST - remove after today
   workflow_dispatch: {}
 
 jobs:

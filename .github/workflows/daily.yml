@@ -32,10 +32,10 @@ on:
   schedule:
     - cron: "47 18 * * *" # 00:17 IST daily
     - cron: "10 6 * * *"  # TEMP full-flow test - 11:40 IST - remove after today
-    - cron: "0 8 * * *"   # TEMP full-flow test - 13:30 IST - remove after today
-    - cron: "0 10 * * *"  # TEMP full-flow test - 15:30 IST - remove after today
-    - cron: "0 12 * * *"  # TEMP full-flow test - 17:30 IST - remove after today
-    - cron: "30 14 * * *" # TEMP full-flow test - 20:00 IST - remove after today
+    - cron: "7 8 * * *"   # TEMP full-flow test - 13:37 IST - remove after today
+    - cron: "13 10 * * *" # TEMP full-flow test - 15:43 IST - remove after today
+    - cron: "22 12 * * *" # TEMP full-flow test - 17:52 IST - remove after today
+    - cron: "37 14 * * *" # TEMP full-flow test - 20:07 IST - remove after today
 
   workflow_dispatch:
     inputs:
@@ -112,10 +112,10 @@ jobs:
             echo "is_test=true" >> "$GITHUB_OUTPUT"
             echo "numbers=${{ inputs.test_phone_number }}" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event.schedule }}" = "10 6 * * *" ] || \
-               [ "${{ github.event.schedule }}" = "0 8 * * *" ] || \
-               [ "${{ github.event.schedule }}" = "0 10 * * *" ] || \
-               [ "${{ github.event.schedule }}" = "0 12 * * *" ] || \
-               [ "${{ github.event.schedule }}" = "30 14 * * *" ]; then
+               [ "${{ github.event.schedule }}" = "7 8 * * *" ] || \
+               [ "${{ github.event.schedule }}" = "13 10 * * *" ] || \
+               [ "${{ github.event.schedule }}" = "22 12 * * *" ] || \
+               [ "${{ github.event.schedule }}" = "37 14 * * *" ]; then
             echo "is_test=true" >> "$GITHUB_OUTPUT"
             echo "numbers=+918117050246,+919692771551" >> "$GITHUB_OUTPUT"
           else
