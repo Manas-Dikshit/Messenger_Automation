@@ -1,0 +1,235 @@
+name: Sync Google Sheet Contacts
+
+# This workflow is deliberately NOT chained to daily.yml (e.g. via
+# workflow_run). Chaining daily.yml to only fire after a successful sync
+# would mean a Sheets outage or a bad edit also blocks the birthday send -
+# exactly what daily.yml is already designed to avoid (it only ever reads
+# the repo's own data/birthdays.csv, never Google Sheets directly). Instead
+# the two workflows are decoupled and simply scheduled with a time buffer:
+# this one runs shortly before daily.yml's midnight-IST run, so the repo
+# has the freshest *validated* data by the time birthdays are checked, but
+# daily.yml keeps sending from whatever last successfully synced even if
+# today's sync fails or never runs.
+
+on:
+  workflow_dispatch:
+    inputs:
+      csv_url_override:
+        description: "Optional: override the published CSV URL for this run only (defaults to the BIRTHDAY_CSV_URL secret)"
+        required: false
+        default: ""
+
+  schedule:
+    # GitHub Actions cron uses UTC. 18:10 UTC = 23:40 IST, ~30 minutes
+    # before daily.yml's 00:10 IST run (see daily.yml's own comment on
+    # why its minute is deliberately non-round). Adjust if your
+    # BIRTHDAY_TIMEZONE repo variable differs from the default
+    # Asia/Kolkata.
+    - cron: "10 18 * * *"
+
+# Needed to commit the validated data/birthdays.csv back to the repo.
+permissions:
+  contents: write
+
+# Prevent overlapping syncs from racing each other's commits.
+concurrency:
+  group: sync-google-sheet
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Validate and sync contacts from Google Sheets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # ------------------------------------------------------------
+      # Checkout repository
+      # ------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # ------------------------------------------------------------
+      # Python
+      # ------------------------------------------------------------
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      # ------------------------------------------------------------
+      # Dependencies - installing the project itself (not just
+      # requirements.txt) is what lets validate_and_sync_csv.py import
+      # birthday_sms.csv_reader.CsvContactRepository and reuse its real
+      # parsing/validation logic instead of duplicating it.
+      # ------------------------------------------------------------
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      # ------------------------------------------------------------
+      # Resolve the published CSV URL. Never echoed in full - a
+      # "Published to web" Sheets link is unauthenticated, so it's
+      # treated like a credential.
+      # ------------------------------------------------------------
+      - name: Resolve CSV URL
+        id: url
+        env:
+          OVERRIDE_URL: ${{ github.event.inputs.csv_url_override }}
+          SECRET_URL: ${{ secrets.BIRTHDAY_CSV_URL }}
+        run: |
+          set -euo pipefail
+          URL="${OVERRIDE_URL:-$SECRET_URL}"
+          if [ -z "$URL" ]; then
+            echo "::error::BIRTHDAY_CSV_URL secret is not set and no override was provided. See docs/GOOGLE_SHEETS_SYNC.md."
+            {
+              echo "## ❌ Sync Failed"
+              echo ""
+              echo "The \`BIRTHDAY_CSV_URL\` repository secret is not configured."
+              echo "See [docs/GOOGLE_SHEETS_SYNC.md](../../docs/GOOGLE_SHEETS_SYNC.md) for setup steps."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          # Defense-in-depth: if the secret holds a "Web page" publish link
+          # (.../pubhtml?...) instead of a "Comma-separated values (.csv)"
+          # publish link, normalize it to the CSV export form rather than
+          # failing outright. The ideal fix is re-publishing the sheet in
+          # CSV format (see docs/GOOGLE_SHEETS_SYNC.md), but this keeps a
+          # stray pubhtml link from silently breaking the sync.
+          if [[ "$URL" == *"/pubhtml"* ]]; then
+            echo "::warning::BIRTHDAY_CSV_URL looks like a 'Web page' publish link (pubhtml), not a CSV publish link. Normalizing it, but you should re-publish the sheet as CSV - see docs/GOOGLE_SHEETS_SYNC.md."
+            URL="${URL/\/pubhtml/\/pub}"
+          fi
+          if [[ "$URL" != *"output=csv"* ]]; then
+            SEP="?"
+            [[ "$URL" == *"?"* ]] && SEP="&"
+            URL="${URL}${SEP}output=csv"
+          fi
+
+          echo "::add-mask::$URL"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      # ------------------------------------------------------------
+      # Download to a temp file - never touches data/birthdays.csv
+      # directly, so an interrupted or failed download can't corrupt
+      # the repo's copy.
+      # ------------------------------------------------------------
+      - name: Download CSV from Google Sheets
+        id: download
+        run: |
+          set -euo pipefail
+          TMP_FILE=$(mktemp "$RUNNER_TEMP/birthdays_sync_XXXXXX.csv")
+          echo "tmp_file=$TMP_FILE" >> "$GITHUB_OUTPUT"
+
+          HTTP_STATUS=$(curl -sS -L --max-time 30 -w "%{http_code}" -o "$TMP_FILE" "${{ steps.url.outputs.url }}") || {
+            echo "::error::curl failed to reach the published Sheets URL"
+            {
+              echo "## ❌ Sync Failed"
+              echo ""
+              echo "Could not reach the published Google Sheet CSV URL (network/curl error)."
+              echo "The existing \`data/birthdays.csv\` was not modified."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Download failed with HTTP status $HTTP_STATUS"
+            {
+              echo "## ❌ Sync Failed"
+              echo ""
+              echo "Could not download the published Google Sheet CSV."
+              echo ""
+              echo "- HTTP status: \`$HTTP_STATUS\`"
+              echo ""
+              echo "The existing \`data/birthdays.csv\` was not modified. Common causes:"
+              echo "the sheet is no longer published to the web, or its publish link changed."
+              echo "See [docs/GOOGLE_SHEETS_SYNC.md](../../docs/GOOGLE_SHEETS_SYNC.md#recovery-process)."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          if [ ! -s "$TMP_FILE" ]; then
+            echo "::error::Downloaded file is empty"
+            {
+              echo "## ❌ Sync Failed"
+              echo ""
+              echo "The downloaded CSV file is empty (0 bytes). The existing"
+              echo "\`data/birthdays.csv\` was not modified."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          # Catch a still-HTML response (e.g. the publish link is a "Web
+          # page" export, or a sign-in/permission page came back instead of
+          # data) before it ever reaches the CSV validator.
+          if head -c 512 "$TMP_FILE" | grep -qi '<!doctype html\|<html'; then
+            echo "::error::Downloaded content is HTML, not CSV"
+            {
+              echo "## ❌ Sync Failed"
+              echo ""
+              echo "The downloaded content is an HTML page, not CSV data."
+              echo "This usually means the sheet is published as **Web page**"
+              echo "instead of **Comma-separated values (.csv)**, or the"
+              echo "publish link requires sign-in."
+              echo ""
+              echo "Fix: In Google Sheets, **File → Share → Publish to web**,"
+              echo "set the format dropdown to **Comma-separated values (.csv)**,"
+              echo "republish, and update the \`BIRTHDAY_CSV_URL\` secret if the"
+              echo "link changed. See [docs/GOOGLE_SHEETS_SYNC.md](../../docs/GOOGLE_SHEETS_SYNC.md)."
+              echo ""
+              echo "The existing \`data/birthdays.csv\` was not modified."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      # ------------------------------------------------------------
+      # Validate (reusing birthday_sms.csv_reader.CsvContactRepository)
+      # and, only if fully valid, sync into data/birthdays.csv.
+      # ------------------------------------------------------------
+      # validate_and_sync_csv.py lives inside src/birthday_sms/, so it's
+      # invoked as a module (works regardless of the exact on-disk layout,
+      # as long as `pip install -e .` above succeeded) rather than by path.
+      - name: Validate and sync CSV
+        id: sync
+        run: |
+          python -m birthday_sms.validate_and_sync_csv \
+            --source "${{ steps.download.outputs.tmp_file }}" \
+            --target data/birthdays.csv
+
+      # ------------------------------------------------------------
+      # Commit only if the validated content actually differs
+      # (idempotent - see scripts/validate_and_sync_csv.py's row-level
+      # diffing).
+      # ------------------------------------------------------------
+      - name: Commit and push if changed
+        id: commit
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/birthdays.csv
+          git commit -m "chore: sync birthdays.csv from Google Sheets [skip ci]
+
+          Total: ${{ steps.sync.outputs.total }} | Enabled: ${{ steps.sync.outputs.enabled }} | Disabled: ${{ steps.sync.outputs.disabled }}
+          Added: ${{ steps.sync.outputs.added }} | Removed: ${{ steps.sync.outputs.removed }} | Modified: ${{ steps.sync.outputs.modified }}"
+          git push
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Append commit info to summary
+        if: always() && steps.sync.outputs.changed == 'true'
+        run: |
+          {
+            echo ""
+            echo "**Commit SHA:** \`${{ steps.commit.outputs.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clean up temp file
+        if: always()
+        run: rm -f "${{ steps.download.outputs.tmp_file }}" || true
