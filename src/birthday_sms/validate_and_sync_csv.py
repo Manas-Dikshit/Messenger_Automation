@@ -349,7 +349,10 @@ def _fallback_validate_rows(rows: List[Dict[str, str]]) -> Tuple[List[Validation
                     ValidationIssue(
                         row_number=i,
                         field="PhoneNumber",
-                        message=f"Duplicate PhoneNumber {phone!r} (also seen at row {seen_phones[phone]})",
+                        message=(
+                            f"Duplicate PhoneNumber {phone!r} "
+                            f"(also seen at row {seen_phones[phone]})"
+                        ),
                     )
                 )
             else:
@@ -408,7 +411,10 @@ def validate_csv(path: Path) -> ValidationResult:
     if missing_headers:
         issues.append(
             ValidationIssue(
-                message=f"Missing required header(s): {missing_headers}. Found headers: {fieldnames}"
+                message=(
+                    f"Missing required header(s): {missing_headers}. "
+                    f"Found headers: {fieldnames}"
+                )
             )
         )
         return ValidationResult(valid=False, issues=issues, fieldnames=fieldnames)
@@ -541,7 +547,12 @@ def build_summary_markdown(
 
     lines.append("")
     lines.append(
-        f"- Parser used: {'project `CsvContactRepository`' if result.reused_project_parser else 'built-in fallback validator'}"
+        "- Parser used: "
+        + (
+            "project `CsvContactRepository`"
+            if result.reused_project_parser
+            else "built-in fallback validator"
+        )
     )
     lines.append(f"- Total contacts: **{result.total}**")
     lines.append(f"- Enabled: **{result.enabled}**")

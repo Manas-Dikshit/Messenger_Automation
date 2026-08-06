@@ -17,10 +17,12 @@ import pytest
 
 from birthday_sms import validate_and_sync_csv as vsc
 
-VALID_CSV = """Name,PhoneNumber,Birthday,Classification,Brief,Address,Enabled,LastSent,MessageTemplate
+VALID_CSV = (
+    """Name,PhoneNumber,Birthday,Classification,Brief,Address,Enabled,LastSent,MessageTemplate
 Rahul Sharma,+919876543210,1999-05-16,Student,Class 10 - Section B,"12 MG Road, Kolkata",TRUE,,
 Priya Das,+919876543211,15/06/2001,Student,Class 9 - Section A,,FALSE,,
 """
+)
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
