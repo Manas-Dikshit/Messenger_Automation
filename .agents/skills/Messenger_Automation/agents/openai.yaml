@@ -1,0 +1,6 @@
+interface:
+  display_name: "Messenger Automation"
+  short_description: "Repo-specific patterns and workflows for Messenger_Automation"
+  default_prompt: "Use the Messenger_Automation repo skill to follow existing architecture, testing, and workflow conventions."
+policy:
+  allow_implicit_invocation: true
