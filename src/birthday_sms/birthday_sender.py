@@ -8,7 +8,7 @@ from datetime import date, datetime
 from typing import Callable
 
 from birthday_sms.config import AppConfig
-from birthday_sms.constants import DELIVERY_TERMINAL_STATES
+from birthday_sms.constants import DEFAULT_ANNIVERSARY_MESSAGE_TEMPLATE, DELIVERY_TERMINAL_STATES
 from birthday_sms.csv_reader import CsvContactRepository
 from birthday_sms.date_utils import now_in_timezone
 from birthday_sms.delivery_tracker import DeliveryTracker
@@ -54,8 +54,10 @@ class BirthdaySender:
 
         results: list[SendResult] = []
         for contact in contacts:
-            result = self._process_contact(contact, today)
-            results.append(result)
+            results.append(self._process_contact(contact, today))
+            ann_result = self._process_anniversary(contact, today)
+            if ann_result is not None:
+                results.append(ann_result)
 
         self._confirm_deliveries(results, today)
         self._state_store.save()
@@ -110,6 +112,64 @@ class BirthdaySender:
         return SendResult(
             contact=contact,
             status=SendStatus.SENT,
+            message_id=response.message_id,
+            rendered_message=rendered_message,
+            sent_at=self._format_now(),
+            retry_attempts=response.attempts,
+        )
+
+    def _process_anniversary(self, contact: Contact, today: date) -> SendResult | None:
+        """Return a SendResult for an anniversary send, or None if not applicable."""
+        if not contact.enabled or not contact.is_anniversary_today(today):
+            return None
+
+        logger.info("Anniversary found: %s (%s)", contact.name, contact.phone_number)
+
+        if self._state_store.already_sent_anniversary(contact.phone_number, today.year):
+            logger.info("Already sent anniversary to %s this year - skipping.", contact.name)
+            return SendResult(
+                contact=contact, status=SendStatus.SKIPPED_ALREADY_SENT, event_type="anniversary"
+            )
+
+        template = DEFAULT_ANNIVERSARY_MESSAGE_TEMPLATE
+        rendered_message = self._message_builder.render(template, contact, today)
+
+        if self._config.dry_run:
+            logger.info(
+                "[DRY RUN] Would send anniversary to %s: %s", contact.phone_number, rendered_message
+            )
+            return SendResult(
+                contact=contact,
+                status=SendStatus.DRY_RUN,
+                event_type="anniversary",
+                rendered_message=rendered_message,
+            )
+
+        try:
+            response = self._gateway_client.send_sms(contact.phone_number, rendered_message)
+        except (SmsGatewayError, RetryExhaustedError) as exc:
+            logger.error("Failed to send anniversary SMS to %s: %s", contact.name, exc)
+            return SendResult(
+                contact=contact,
+                status=SendStatus.FAILED,
+                event_type="anniversary",
+                error=str(exc),
+                rendered_message=rendered_message,
+                sent_at=self._format_now(),
+            )
+
+        self._state_store.mark_sent_anniversary(contact.phone_number, today.year)
+        logger.info(
+            "Anniversary SMS sent to %s (%s) - id=%s state=%s",
+            contact.name,
+            contact.phone_number,
+            response.message_id,
+            response.state,
+        )
+        return SendResult(
+            contact=contact,
+            status=SendStatus.SENT,
+            event_type="anniversary",
             message_id=response.message_id,
             rendered_message=rendered_message,
             sent_at=self._format_now(),

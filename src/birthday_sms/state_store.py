@@ -60,6 +60,12 @@ class SentStateStore:
     def mark_sent(self, phone_number: str, year: int) -> None:
         self._sent[self._key(phone_number, year)] = True
 
+    def already_sent_anniversary(self, phone_number: str, year: int) -> bool:
+        return self._sent.get(self._key(phone_number, year) + ":ann", False)
+
+    def mark_sent_anniversary(self, phone_number: str, year: int) -> None:
+        self._sent[self._key(phone_number, year) + ":ann"] = True
+
     def mark_unconfirmed(self, message_id: str, phone_number: str, year: int) -> None:
         """Record a sent message whose delivery was not confirmed this run."""
         self._unconfirmed[message_id] = {"phone": phone_number, "year": year}

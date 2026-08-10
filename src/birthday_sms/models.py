@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
+from typing import Optional
 
 
 class SendStatus(str, Enum):
@@ -20,15 +21,12 @@ class SendStatus(str, Enum):
 
 @dataclass(slots=True)
 class Contact:
-    """A single row from the contacts CSV.
-
-    Only the birthday is used for triggering messages - there is no
-    anniversary/wedding-day concept in this dataset by design.
-    """
+    """A single row from the contacts CSV."""
 
     name: str
     phone_number: str
     birthday: date
+    anniversary: Optional[date] = None
     classification: str = ""
     brief: str = ""
     address: str = ""
@@ -41,9 +39,23 @@ class Contact:
         """Best-effort first name, used for the {FIRST_NAME} placeholder."""
         return self.name.strip().split(" ")[0] if self.name.strip() else self.name
 
+    @property
+    def spouse(self) -> str:
+        """Spouse name parsed from Brief field ('Spouse: <name>' prefix)."""
+        brief = self.brief.strip()
+        if brief.lower().startswith("spouse:"):
+            return brief[len("spouse:"):].strip()
+        return ""
+
     def is_birthday_today(self, today: date) -> bool:
         """Compare month/day only - year is irrelevant for a birthday."""
         return (self.birthday.month, self.birthday.day) == (today.month, today.day)
+
+    def is_anniversary_today(self, today: date) -> bool:
+        """Compare month/day of anniversary - returns False if no anniversary set."""
+        if self.anniversary is None:
+            return False
+        return (self.anniversary.month, self.anniversary.day) == (today.month, today.day)
 
     def age_turning(self, today: date) -> int:
         """Age the contact turns on this birthday."""
@@ -56,6 +68,7 @@ class SendResult:
 
     contact: Contact
     status: SendStatus
+    event_type: str = "birthday"  # "birthday" or "anniversary"
     message_id: str | None = None
     error: str | None = None
     rendered_message: str | None = None

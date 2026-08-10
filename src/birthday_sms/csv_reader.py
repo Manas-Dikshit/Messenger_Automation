@@ -20,6 +20,7 @@ from pathlib import Path
 
 from birthday_sms.constants import (
     CSV_COLUMN_ADDRESS,
+    CSV_COLUMN_ANNIVERSARY,
     CSV_COLUMN_BIRTHDAY,
     CSV_COLUMN_BRIEF,
     CSV_COLUMN_CLASSIFICATION,
@@ -35,6 +36,7 @@ from birthday_sms.exceptions import (
     CsvFileNotFoundError,
     CsvRowError,
     CsvSchemaError,
+    InvalidDateError,
     InvalidPhoneNumberError,
 )
 from birthday_sms.models import Contact
@@ -114,6 +116,14 @@ class CsvContactRepository:
         raw_birthday = (raw_row.get(CSV_COLUMN_BIRTHDAY) or "").strip()
         birthday = parse_date(raw_birthday, row_number)
 
+        raw_anniversary = (raw_row.get(CSV_COLUMN_ANNIVERSARY) or "").strip()
+        anniversary = None
+        if raw_anniversary:
+            try:
+                anniversary = parse_date(raw_anniversary, row_number)
+            except InvalidDateError as exc:
+                logger.warning("Ignoring invalid anniversary for row %d: %s", row_number, exc)
+
         # Blank/missing Enabled means "enabled" (opt-out column, not opt-in):
         # only an explicit falsy value (e.g. FALSE, 0, NO, N) disables a contact.
         enabled_raw = (raw_row.get(CSV_COLUMN_ENABLED) or "").strip().upper()
@@ -123,6 +133,7 @@ class CsvContactRepository:
             name=name,
             phone_number=phone_number,
             birthday=birthday,
+            anniversary=anniversary,
             classification=(raw_row.get(CSV_COLUMN_CLASSIFICATION) or "").strip(),
             brief=(raw_row.get(CSV_COLUMN_BRIEF) or "").strip(),
             address=(raw_row.get(CSV_COLUMN_ADDRESS) or "").strip(),

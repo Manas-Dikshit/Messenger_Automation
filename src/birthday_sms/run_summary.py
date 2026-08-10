@@ -51,17 +51,18 @@ def build_summary_markdown(
         lines.append("_No contacts processed._")
     lines.append("")
 
-    attempted = [
-        r for r in results if r.status in (SendStatus.SENT, SendStatus.FAILED, SendStatus.DRY_RUN)
-    ]
+    attempted_statuses = (SendStatus.SENT, SendStatus.FAILED, SendStatus.DRY_RUN)
+    table_header = (
+        "| Contact | Phone | Send status | Sent at | Delivery | "
+        "Delivered at | Retries | Message ID | Error |"
+    )
+    table_sep = "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+
+    birthdays = [r for r in results if r.status in attempted_statuses and r.event_type == "birthday"]
     lines += ["## Today's birthdays", ""]
-    if attempted:
-        lines += [
-            "| Contact | Phone | Send status | Sent at | Delivery | "
-            "Delivered at | Retries | Message ID | Error |",
-            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
-        ]
-        for result in attempted:
+    if birthdays:
+        lines += [table_header, table_sep]
+        for result in birthdays:
             delivery = delivery_states.get(result.message_id or "", "-")
             lines.append(
                 f"| {result.contact.name} | {result.contact.phone_number} "
@@ -71,6 +72,22 @@ def build_summary_markdown(
             )
     else:
         lines.append("No birthdays today.")
+    lines.append("")
+
+    anniversaries = [r for r in results if r.status in attempted_statuses and r.event_type == "anniversary"]
+    lines += ["## Today's anniversaries", ""]
+    if anniversaries:
+        lines += [table_header, table_sep]
+        for result in anniversaries:
+            delivery = delivery_states.get(result.message_id or "", "-")
+            lines.append(
+                f"| {result.contact.name} | {result.contact.phone_number} "
+                f"| {result.status.value} | {result.sent_at or '-'} | {delivery} "
+                f"| {result.delivered_at or '-'} | {result.retry_attempts or '-'} "
+                f"| {result.message_id or '-'} | {result.error or '-'} |"
+            )
+    else:
+        lines.append("No anniversaries today.")
     lines.append("")
 
     lines += ["## Unconfirmed deliveries (will re-check next run)", ""]
