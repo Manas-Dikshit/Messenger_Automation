@@ -44,7 +44,7 @@ class Contact:
         """Spouse name parsed from Brief field ('Spouse: <name>' prefix)."""
         brief = self.brief.strip()
         if brief.lower().startswith("spouse:"):
-            return brief[len("spouse:"):].strip()
+            return brief[len("spouse:") :].strip()
         return ""
 
     def is_birthday_today(self, today: date) -> bool:

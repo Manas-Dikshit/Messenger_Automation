@@ -58,7 +58,9 @@ def build_summary_markdown(
     )
     table_sep = "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
 
-    birthdays = [r for r in results if r.status in attempted_statuses and r.event_type == "birthday"]
+    birthdays = [
+        r for r in results if r.status in attempted_statuses and r.event_type == "birthday"
+    ]
     lines += ["## Today's birthdays", ""]
     if birthdays:
         lines += [table_header, table_sep]
@@ -74,7 +76,9 @@ def build_summary_markdown(
         lines.append("No birthdays today.")
     lines.append("")
 
-    anniversaries = [r for r in results if r.status in attempted_statuses and r.event_type == "anniversary"]
+    anniversaries = [
+        r for r in results if r.status in attempted_statuses and r.event_type == "anniversary"
+    ]
     lines += ["## Today's anniversaries", ""]
     if anniversaries:
         lines += [table_header, table_sep]
