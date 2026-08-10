@@ -10,11 +10,10 @@ from __future__ import annotations
 # CSV schema
 # --------------------------------------------------------------------------
 # Column order and names expected in the contacts CSV file.
-# NOTE: Only birthdays are tracked. There is intentionally no
-# "anniversary" / "wedding day" column in this dataset.
 CSV_COLUMN_NAME = "Name"
 CSV_COLUMN_PHONE_NUMBER = "PhoneNumber"
 CSV_COLUMN_BIRTHDAY = "Birthday"
+CSV_COLUMN_ANNIVERSARY = "Anniversary"
 CSV_COLUMN_CLASSIFICATION = "Classification"
 CSV_COLUMN_BRIEF = "Brief"
 CSV_COLUMN_ADDRESS = "Address"
@@ -32,6 +31,7 @@ CSV_ALL_COLUMNS: tuple[str, ...] = (
     CSV_COLUMN_NAME,
     CSV_COLUMN_PHONE_NUMBER,
     CSV_COLUMN_BIRTHDAY,
+    CSV_COLUMN_ANNIVERSARY,
     CSV_COLUMN_CLASSIFICATION,
     CSV_COLUMN_BRIEF,
     CSV_COLUMN_ADDRESS,
@@ -58,6 +58,7 @@ PLACEHOLDER_YEAR = "{YEAR}"
 PLACEHOLDER_AGE = "{AGE}"
 PLACEHOLDER_CLASSIFICATION = "{CLASSIFICATION}"
 PLACEHOLDER_BRIEF = "{BRIEF}"
+PLACEHOLDER_SPOUSE = "{SPOUSE}"
 
 DEFAULT_MESSAGE_TEMPLATE = (
     "Happy Birthday to Rtn. {NAME}\n\n"
@@ -66,6 +67,16 @@ DEFAULT_MESSAGE_TEMPLATE = (
     "Wishing you many, many happy returns of the day! "
     "May you be blessed with good health, happiness, success, "
     "and many more years of dedicated service to humanity through Rotary.\n\n"
+    "With regards,\n"
+    "Dr. Rasmikanta Pati, Secretary, RCB\n"
+)
+
+DEFAULT_ANNIVERSARY_MESSAGE_TEMPLATE = (
+    "Happy Wedding Anniversary to Rtn. {NAME} & {SPOUSE}!\n\n"
+    "The members of Rotary Club, Burla extend our warmest wishes "
+    "to you both on this special occasion.\n\n"
+    "May your journey together continue to be filled with joy, love, "
+    "and happiness for many more years to come.\n\n"
     "With regards,\n"
     "Dr. Rasmikanta Pati, Secretary, RCB\n"
 )

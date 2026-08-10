@@ -17,6 +17,7 @@ from birthday_sms.constants import (
     PLACEHOLDER_CLASSIFICATION,
     PLACEHOLDER_FIRST_NAME,
     PLACEHOLDER_NAME,
+    PLACEHOLDER_SPOUSE,
     PLACEHOLDER_TODAY,
     PLACEHOLDER_YEAR,
 )
@@ -42,6 +43,7 @@ class MessageBuilder:
             PLACEHOLDER_AGE: str(contact.age_turning(today)),
             PLACEHOLDER_CLASSIFICATION: contact.classification,
             PLACEHOLDER_BRIEF: contact.brief,
+            PLACEHOLDER_SPOUSE: contact.spouse,
         }
 
         rendered = template
